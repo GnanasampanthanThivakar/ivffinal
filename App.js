@@ -12,9 +12,10 @@ import AlertsScreen from './src/screens/AlertScreen';
 import ActivitiesScreen from './src/screens/ActivityScreen';
 import NutritionInputScreen from './src/screens/NutritionInputScreen';
 import NutritionScreen from './src/screens/NutritionScreen';
+import NutritionResultScreen from './src/screens/NutritionResultScreen';
 import MainTabNavigator from './MainTabNavigator';
 
-import { 
+import {
   useFonts,
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
@@ -37,14 +38,14 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        <Stack.Navigator 
+        <Stack.Navigator
           initialRouteName="Welcome"
           screenOptions={{
             headerShown: false
           }}
         >
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
-          <Stack.Screen name="ProfileSetup" component={ProfileSetupStep1Screen} /> 
+          <Stack.Screen name="ProfileSetup" component={ProfileSetupStep1Screen} />
           {/* Kept 'ProfileSetup' as name for Step 1 if WelcomeScreen links there, 
               but let's update WelcomeScreen to point to 'ProfileSetupStep1' for clarity 
               OR just alias it here. Let's start clean. */}
@@ -57,6 +58,7 @@ export default function App() {
           <Stack.Screen name="Activities" component={ActivitiesScreen} />
           <Stack.Screen name="NutritionInput" component={NutritionInputScreen} />
           <Stack.Screen name="Nutrition" component={NutritionScreen} />
+          <Stack.Screen name="NutritionResult" component={NutritionResultScreen} />
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         </Stack.Navigator>
       </NavigationContainer>
