@@ -7,11 +7,33 @@ import ProfileSetupStep1Screen from './src/screens/ProfileSetupStep1Screen';
 import ProfileSetupStep2Screen from './src/screens/ProfileSetupStep2Screen';
 import ProfileSetupStep3Screen from './src/screens/ProfileSetupStep3Screen';
 import LoadingScreen from './src/screens/LoadingScreen';
+import WeeklyReportScreen from './src/screens/WeeklyReportScreen';
+import AlertsScreen from './src/screens/AlertScreen';
+import ActivitiesScreen from './src/screens/ActivityScreen';
+import NutritionInputScreen from './src/screens/NutritionInputScreen';
+import NutritionScreen from './src/screens/NutritionScreen';
 import MainTabNavigator from './MainTabNavigator';
+
+import { 
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return null; // or a custom loading screen
+  }
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -30,6 +52,11 @@ export default function App() {
           <Stack.Screen name="ProfileSetupStep2" component={ProfileSetupStep2Screen} />
           <Stack.Screen name="ProfileSetupStep3" component={ProfileSetupStep3Screen} />
           <Stack.Screen name="Loading" component={LoadingScreen} />
+          <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen} />
+          <Stack.Screen name="Alerts" component={AlertsScreen} />
+          <Stack.Screen name="Activities" component={ActivitiesScreen} />
+          <Stack.Screen name="NutritionInput" component={NutritionInputScreen} />
+          <Stack.Screen name="Nutrition" component={NutritionScreen} />
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         </Stack.Navigator>
       </NavigationContainer>

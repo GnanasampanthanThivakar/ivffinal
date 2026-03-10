@@ -1,0 +1,12 @@
+{
+  "sequence_len": 7,
+  "feature_cols_order": [
+    "HR_sensor",
+    "Heart_Rate_Variability",
+    "Sleep_Hours",
+    "steps_sensor"
+  ],
+  "target_col": "Stress_Level_Code",
+  "model_type": "LSTM",
+  "notes": "User-wise split; label is last day of sequence"
+}

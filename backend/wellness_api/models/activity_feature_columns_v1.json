@@ -1,0 +1,29 @@
+{
+  "feature_columns": [
+    "isWeekend",
+    "caffeineMg",
+    "hydrationLevel_0_10",
+    "moodScore_1_10",
+    "HR_sensor",
+    "Heart_Rate_Variability",
+    "Sleep_Hours",
+    "steps_sensor",
+    "CurrentStressLevel",
+    "hour",
+    "month",
+    "day",
+    "SleepQualityLabel_Fair",
+    "SleepQualityLabel_Good",
+    "SleepQualityLabel_Poor",
+    "ActivityLevelLabel_Light",
+    "ActivityLevelLabel_Sedentary",
+    "ActivityLevelLabel_Very Active",
+    "pregnancyStage_Follow-up",
+    "pregnancyStage_Post-transfer",
+    "pregnancyStage_Stimulation",
+    "pregnancyStage_TTC/IVF Prep",
+    "timeOfDay_Evening",
+    "timeOfDay_Morning",
+    "timeOfDay_Night"
+  ]
+}

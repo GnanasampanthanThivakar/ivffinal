@@ -1,0 +1,38 @@
+{
+  "Breathing Exercise": {
+    "description": "Do slow diaphragmatic breathing for 5–7 minutes. Inhale 4s, hold 2–4s, exhale 6s. Repeat gently.",
+    "goal": "Reduce acute stress, stabilize HR/HRV",
+    "duration_min": 8,
+    "support_message": "Your stress looks elevated right now. Let’s take a small, safe step to calm your body. You don’t have to fix everything at once. Try it for about 8 minutes. Do slow diaphragmatic breathing for 5–7 minutes. Inhale 4s, hold 2–4s, exhale 6s. Repeat gently. This is chosen to help slow your heart rate and settle your stress response."
+  },
+  "Gentle Stretching": {
+    "description": "Do gentle full-body stretching for 8–15 minutes (neck, shoulders, hips). Avoid over-stretching.",
+    "goal": "Release tension, support body comfort",
+    "duration_min": 11,
+    "support_message": "You’re maintaining well today. Let’s keep your routine supportive and steady with a small wellness step. Try it for about 11 minutes. Do gentle full-body stretching for 8–15 minutes (neck, shoulders, hips). Avoid over-stretching. This is chosen to support better relaxation and sleep recovery."
+  },
+  "Guided Meditation": {
+    "description": "Sit comfortably and follow a 10-minute guided meditation focusing on body relaxation and calm awareness.",
+    "goal": "Calm mind, reduce stress, improve recovery",
+    "duration_min": 12,
+    "support_message": "Your stress looks elevated right now. Let’s take a small, safe step to calm your body. You don’t have to fix everything at once. Try it for about 11 minutes. Sit comfortably and follow a 10-minute guided meditation focusing on body relaxation and calm awareness. This is chosen to support your recovery and gently improve HRV."
+  },
+  "Hydration & Rest Break": {
+    "description": "Drink a glass of water and take a 5–10 minute rest. Sit with shoulders relaxed and soften your breathing.",
+    "goal": "Support recovery, reduce fatigue, stabilize stress",
+    "duration_min": 8,
+    "support_message": "You’re maintaining well today. Let’s keep your routine supportive and steady with a small wellness step. Try it for about 8 minutes. Drink a glass of water and take a 5–10 minute rest. Sit with shoulders relaxed and soften your breathing. This is a safe supportive step for your wellbeing."
+  },
+  "Mindful Walking": {
+    "description": "Take a gentle 5–12 minute mindful walk. Walk slowly, breathe naturally, and notice sounds and surroundings.",
+    "goal": "Regulate mood, improve circulation, reset stress",
+    "duration_min": 10,
+    "support_message": "You’re maintaining well today. Let’s keep your routine supportive and steady with a small wellness step. Try it for about 11 minutes. Take a gentle 5–12 minute mindful walk. Walk slowly, breathe naturally, and notice sounds and surroundings. This is chosen to gently activate your body and improve circulation without strain."
+  },
+  "Soothing Music Therapy": {
+    "description": "Listen to calming instrumental music for 10–20 minutes in a quiet space. Keep screen brightness low.",
+    "goal": "Reduce stress perception, improve relaxation",
+    "duration_min": 11,
+    "support_message": "Your stress looks elevated right now. Let’s take a small, safe step to calm your body. You don’t have to fix everything at once. Try it for about 19 minutes. Listen to calming instrumental music for 10–20 minutes in a quiet space. Keep screen brightness low. This is chosen to support better relaxation and sleep recovery."
+  }
+}

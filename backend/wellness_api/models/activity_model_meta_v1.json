@@ -1,0 +1,13 @@
+{
+  "model_name": "ivf_activity_xgb_model_v1",
+  "task": "predict ActivitySuggested (multiclass)",
+  "framework": "xgboost",
+  "artifact_files": {
+    "model": "ivf_activity_xgb_model_v1.json",
+    "feature_columns": "activity_feature_columns_v1.json",
+    "label_map": "activity_label_map_v1.json",
+    "activity_catalog": "activity_catalog_v1.json",
+    "example_input": "activity_example_input_v1.json"
+  },
+  "created_utc": "2026-02-28T07:38:32Z"
+}

@@ -1,7 +1,17 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
+.venv/
+venv/
+ENV/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Expo
 .expo/
@@ -26,11 +36,8 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
-.DS_Store
-*.pem
-
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -39,3 +46,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# macOS
+.DS_Store
+*.pem

@@ -2,8 +2,8 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View } from 'react-native';
 import ResultScreen from './src/screens/ResultScreen';
-import NutritionScreen from './src/screens/NutritionScreen';
-import WellnessScreen from './src/screens/WellnessScreen';
+import NutritionInputScreen from './src/screens/NutritionInputScreen';
+import WellnessHomeScreen from './src/screens/WellnessHomeScreen';
 import { theme } from './src/theme';
 
 const Tab = createBottomTabNavigator();
@@ -68,8 +68,8 @@ export default function MainTabNavigator({ route }) {
                 component={ResultScreen} 
                 initialParams={dashboardParams}
             />
-            <Tab.Screen name="Nutrition" component={NutritionScreen} />
-            <Tab.Screen name="Wellness" component={WellnessScreen} />
+            <Tab.Screen name="Nutrition" component={NutritionInputScreen} />
+            <Tab.Screen name="Wellness" component={WellnessHomeScreen} />
         </Tab.Navigator>
     );
 }

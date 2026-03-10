@@ -1,0 +1,13 @@
+{
+  "model_type": "ANFIS_PYTORCH",
+  "feature_cols_order": [
+    "HR_sensor",
+    "Heart_Rate_Variability",
+    "Sleep_Hours",
+    "steps_sensor"
+  ],
+  "target_col": "Stress_Level_Code",
+  "n_inputs": 4,
+  "n_mfs": 2,
+  "notes": "Sugeno-type ANFIS; output is continuous and rounded to 0/1/2"
+}

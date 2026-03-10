@@ -114,7 +114,7 @@ export default function ResultScreen({ navigation, route }) {
         <View style={styles.resultCard}>
             <Text style={styles.sectionTitle}>IVF Success Probability</Text>
             
-            <SuccessRing percentage={68} />
+            <SuccessRing percentage={params.predictionSuccess !== undefined ? Math.round(params.predictionSuccess) : 68} />
 
             <View style={styles.separator} />
 
@@ -141,7 +141,11 @@ export default function ResultScreen({ navigation, route }) {
         <Text style={styles.heading}>Your Next Steps</Text>
         <Text style={styles.subHeading}>Now that you have your prediction, let's work together to optimize your fertility journey.</Text>
 
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.8}>
+        <TouchableOpacity 
+            style={styles.actionCard} 
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Nutrition')}
+        >
             <View style={[styles.iconBox, { backgroundColor: '#E0F2F1' }]}>
                 <Text style={{fontSize: 24}}>🍃</Text>
             </View>

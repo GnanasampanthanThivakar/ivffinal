@@ -32,12 +32,81 @@ export default function LoadingScreen({ navigation, route }) {
   }, []);
 
   useEffect(() => {
-      if (progress === 100) {
-          setTimeout(() => {
-              navigation.replace('MainTabs', params);
-          }, 500);
-      }
-  }, [progress]);
+      // Create an async function to call the backend API and wait for the progress bar
+      const fetchPrediction = async () => {
+          try {
+              // The API expects age, bmi, amh_level, prior_sab, d3_cell_count, d3_fragmentation, calculated_velocity
+              const apiUrl = 'http://127.0.0.1:8000/api/predict/ivf';
+              
+              const requestBody = {
+                  age: parseFloat(params.age) || 30.0,
+                  bmi: parseFloat(params.bmi) || 22.0,
+                  amh_level: parseFloat(params.amhLevel) || 2.0,
+                  prior_sab: parseFloat(params.priorSAB) || 0.0,
+                  d3_cell_count: parseFloat(params.freshD3CellCount) || 8.0,
+                  d3_fragmentation: parseFloat(params.freshD3Fragmentation) || 0.0,
+                  calculated_velocity: parseFloat(params.calculatedVelocity) || 0.0
+              };
+
+              const response = await fetch(apiUrl, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(requestBody)
+              });
+
+              const data = await response.json();
+              if (response.ok && data.success) {
+                  // Wait until progress reaches 100% just to show the UI
+                  const checkProgress = setInterval(() => {
+                      setProgress((currentProgress) => {
+                          if (currentProgress >= 100) {
+                              clearInterval(checkProgress);
+                              setTimeout(() => {
+                                  // Pass the prediction percentage to the next screen (params or direct)
+                                  navigation.replace('MainTabs', {
+                                      ...params,
+                                      predictionSuccess: data.success_probability_percentage || data.prediction || 68
+                                  });
+                              }, 500);
+                              return 100;
+                          }
+                          return currentProgress;
+                      });
+                  }, 50);
+              } else {
+                  console.error('API Error:', data.detail);
+                  // Fallback if API fails
+                  fallbackNavigation();
+              }
+          } catch (error) {
+              console.error('Network Error:', error);
+              // Fallback if no network
+              fallbackNavigation();
+          }
+      };
+
+      const fallbackNavigation = () => {
+          const checkProgress = setInterval(() => {
+              setProgress((currentProgress) => {
+                   if (currentProgress >= 100) {
+                       clearInterval(checkProgress);
+                       setTimeout(() => {
+                           navigation.replace('MainTabs', params);
+                       }, 500);
+                       return 100;
+                   }
+                   return currentProgress;
+              });
+          }, 50);
+      };
+
+      // Call the API when component mounts
+      fetchPrediction();
+
+      // Clear intervals on unmount would go here if needed
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
