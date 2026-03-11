@@ -1,10 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, TouchableOpacity, StatusBar, Platform, Animated } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, TouchableOpacity, StatusBar, Platform, Animated, ActivityIndicator, Alert } from 'react-native';
 import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop, Shadow } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
+const API_URL = 'http://localhost:8000';
 
 // Circular Progress Component
 const SuccessRing = ({ percentage = 68 }) => {
@@ -112,6 +113,35 @@ export default function ResultScreen({ navigation, route }) {
 
     const successRate = params.predictionSuccess !== undefined ? Math.round(params.predictionSuccess) : 48;
 
+    const [doctorAdvice, setDoctorAdvice] = useState(null);
+    const [loadingAdvice, setLoadingAdvice] = useState(false);
+
+    const fetchDoctorRecommendation = async () => {
+        setLoadingAdvice(true);
+        setDoctorAdvice(null);
+        try {
+            const response = await fetch(`${API_URL}/api/recommend_clinical`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    baseline_probability: successRate,
+                    age: parseFloat(params.age) || 30,
+                    amh_level: parseFloat(params.amh_level || params.amhLevel) || 2.0,
+                    bmi: parseFloat(params.bmi) || 22.0,
+                    prior_sab: parseInt(params.prior_sab || params.priorSAB) || 0,
+                    cell_quality: parseFloat(params.d3_fragmentation || params.freshD3Fragmentation) || 10.0
+                })
+            });
+            const result = await response.json();
+            setDoctorAdvice(result.recommendation);
+        } catch (error) {
+            Alert.alert('Connection Error', 'Make sure Ollama is running locally with medllama2 model.');
+            setDoctorAdvice('Could not connect to the medical AI. Please ensure Ollama is running.');
+        } finally {
+            setLoadingAdvice(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
@@ -204,6 +234,45 @@ export default function ResultScreen({ navigation, route }) {
                         </View>
                     </View>
                 </View>
+
+                {/* Doctor Recommendation Button */}
+                <TouchableOpacity
+                    style={styles.doctorButton}
+                    onPress={fetchDoctorRecommendation}
+                    disabled={loadingAdvice}
+                >
+                    <LinearGradient
+                        colors={['#7C3AED', '#5B21B6']}
+                        style={styles.doctorButtonGradient}
+                    >
+                        {loadingAdvice ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <ActivityIndicator color="#FFFFFF" size="small" />
+                                <Text style={styles.doctorButtonText}>  MedLLaMA2 is thinking...</Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.doctorButtonText}>🩺 Get Doctor Recommendation</Text>
+                        )}
+                    </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Doctor Advice Response */}
+                {doctorAdvice && (
+                    <View style={styles.doctorCard}>
+                        <View style={styles.doctorCardHeader}>
+                            <Text style={styles.doctorAvatar}>🩺</Text>
+                            <View>
+                                <Text style={styles.doctorName}>MedLLaMA2 AI Doctor</Text>
+                                <Text style={styles.doctorSubtitle}>Personalized Medical Advice</Text>
+                            </View>
+                        </View>
+                        <View style={styles.doctorDivider} />
+                        <Text style={styles.doctorText}>{doctorAdvice}</Text>
+                        <View style={styles.disclaimerBox}>
+                            <Text style={styles.disclaimerText}>⚠️ This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.</Text>
+                        </View>
+                    </View>
+                )}
 
                 <View style={{ height: 60 }} />
             </ScrollView>
@@ -512,5 +581,72 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: '#0F172A',
         fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    doctorButton: {
+        borderRadius: 18,
+        overflow: 'hidden',
+        marginBottom: 16,
+        ...theme.shadows.soft,
+    },
+    doctorButtonGradient: {
+        paddingVertical: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    doctorButtonText: {
+        color: '#FFFFFF',
+        fontSize: 17,
+        fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    doctorCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#E9D5FF',
+        ...theme.shadows.soft,
+    },
+    doctorCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 14,
+    },
+    doctorAvatar: {
+        fontSize: 32,
+        marginRight: 14,
+    },
+    doctorName: {
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#5B21B6',
+    },
+    doctorSubtitle: {
+        fontSize: 12,
+        color: '#7C3AED',
+        fontFamily: 'PlusJakartaSans_500Medium',
+    },
+    doctorDivider: {
+        height: 1,
+        backgroundColor: '#F3E8FF',
+        marginBottom: 14,
+    },
+    doctorText: {
+        fontSize: 14,
+        lineHeight: 24,
+        color: '#334155',
+        fontFamily: 'PlusJakartaSans_400Regular',
+        marginBottom: 14,
+    },
+    disclaimerBox: {
+        backgroundColor: '#FEF3C7',
+        borderRadius: 12,
+        padding: 12,
+    },
+    disclaimerText: {
+        fontSize: 11,
+        color: '#92400E',
+        lineHeight: 16,
+        fontFamily: 'PlusJakartaSans_500Medium',
     }
 });

@@ -62,7 +62,15 @@ export default function NutritionInputScreen({ navigation }) {
                     name: 'Patient',
                     predictionSuccess: result.baseline_probability,
                     optimizedProbability: result.optimized_probability,
-                    impactScore: result.impact_score
+                    impactScore: result.impact_score,
+                    recommendation: result.recommendation || '',
+                    detailedRecommendations: result.detailed_recommendations || [],
+                    age: parseFloat(formData.age) || 30,
+                    bmi_cat: parseFloat(formData.bmi_cat) || 2,
+                    sleep: parseFloat(formData.sleep) || 7,
+                    chol: parseFloat(formData.chol) || 180,
+                    sbp: parseFloat(formData.sbp) || 120,
+                    dbp: parseFloat(formData.dbp) || 80
                 });
             } else {
                 Alert.alert("Prediction Error", result.detail || "Unknown error occurred");
@@ -229,6 +237,10 @@ export default function NutritionInputScreen({ navigation }) {
                             <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D1" name="folate_d1" unit="mcg" /></View>
                             <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Zinc D1" name="zinc_d1" unit="mg" /></View>
                         </View>
+                        <View style={styles.row}>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Vit D" name="vit_d" unit="mcg" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Vit B12" name="vit_b12" unit="mcg" /></View>
+                        </View>
                     </View>
 
                     {/* DAY 2 */}
@@ -237,6 +249,10 @@ export default function NutritionInputScreen({ navigation }) {
                         <View style={styles.row}>
                             <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Calories" name="calories_d2" unit="kcal" /></View>
                             <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Protein" name="protein_d2" unit="g" /></View>
+                        </View>
+                        <View style={styles.row}>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Carbs D2" name="carbs_d2" unit="g" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Fat D2" name="fat_d2" unit="g" /></View>
                         </View>
                         <View style={styles.row}>
                             <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D2" name="folate_d2" unit="mcg" /></View>

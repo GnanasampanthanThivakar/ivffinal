@@ -9,6 +9,7 @@ import numpy as np
 import uvicorn
 import os
 import sys
+import httpx
 
 # --- GLOBAL COMPATIBILITY PATCHES FOR SCIKIT-LEARN ---
 try:
@@ -151,6 +152,39 @@ def predict_ivf(data: IVFInput):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# --- CLINICAL REFERENCE RANGES FOR SMART RECOMMENDATIONS ---
+# These are evidence-based daily recommended values for reproductive health
+CLINICAL_TARGETS = {
+    'Mean_Folate': {'target': 400.0, 'unit': 'mcg', 'label': 'Folate', 'icon': '🥬',
+                     'food_tip': 'Spinach, lentils, fortified cereals, asparagus'},
+    'Mean_Zinc': {'target': 11.0, 'unit': 'mg', 'label': 'Zinc', 'icon': '🦪',
+                   'food_tip': 'Oysters, beef, pumpkin seeds, chickpeas'},
+    'Dietary_VitD_mcg': {'target': 15.0, 'unit': 'mcg', 'label': 'Vitamin D (Day 1)', 'icon': '☀️',
+                          'food_tip': 'Salmon, fortified milk, egg yolks, mushrooms'},
+    'Dietary_VitD_Day2': {'target': 15.0, 'unit': 'mcg', 'label': 'Vitamin D (Day 2)', 'icon': '☀️',
+                           'food_tip': 'Salmon, fortified milk, egg yolks, mushrooms'},
+    'Dietary_VB12_mcg': {'target': 4.0, 'unit': 'mcg', 'label': 'Vitamin B12 (Day 1)', 'icon': '🥩',
+                          'food_tip': 'Meat, fish, dairy, fortified nutritional yeast'},
+    'Dietary_VB12_Day2': {'target': 4.0, 'unit': 'mcg', 'label': 'Vitamin B12 (Day 2)', 'icon': '🥩',
+                           'food_tip': 'Meat, fish, dairy, fortified nutritional yeast'},
+    'Dietary_Folate_Day2': {'target': 400.0, 'unit': 'mcg', 'label': 'Folate (Day 2)', 'icon': '🥬',
+                             'food_tip': 'Spinach, lentils, fortified cereals'},
+    'Dietary_Zinc_Day2': {'target': 11.0, 'unit': 'mg', 'label': 'Zinc (Day 2)', 'icon': '🦪',
+                           'food_tip': 'Oysters, beef, pumpkin seeds, chickpeas'},
+    'Diet_Protein_g': {'target': 75.0, 'unit': 'g', 'label': 'Protein (Day 1)', 'icon': '🍗',
+                        'food_tip': 'Chicken, fish, eggs, Greek yogurt, tofu'},
+    'Diet_Protein_Day2': {'target': 75.0, 'unit': 'g', 'label': 'Protein (Day 2)', 'icon': '🍗',
+                           'food_tip': 'Chicken, fish, eggs, Greek yogurt, tofu'},
+    'Sleep_Duration_Hours': {'target': 8.0, 'unit': 'hrs', 'label': 'Sleep Duration', 'icon': '😴',
+                              'food_tip': 'Aim for 7-9 hours of consistent sleep nightly'},
+}
+
+# Lifestyle factors where LOWER is better
+LIFESTYLE_REDUCE_TARGETS = {
+    'Cholesterol': {'target': 200.0, 'unit': 'mg/dL', 'label': 'Cholesterol', 'icon': '💉',
+                     'food_tip': 'Reduce fried foods, increase fiber and omega-3'},
+}
+
 @app.post("/api/predict/nutrition_full")
 def predict_nutrition_full(data: NutritionFullInput):
     if research_model_obj is None:
@@ -162,7 +196,6 @@ def predict_nutrition_full(data: NutritionFullInput):
         features = research_model_obj['features']
         
         # 1. Map incoming JSON to the internal 24-feature format
-        # Note: Mean calculation happens here in the backend for clean encapsulation
         folate_mean = (data.folate_d1 + data.folate_d2) / 2.0
         zinc_mean = (data.zinc_d1 + data.zinc_d2) / 2.0
         
@@ -183,10 +216,8 @@ def predict_nutrition_full(data: NutritionFullInput):
         
         df_input = pd.DataFrame([input_data], columns=features)
         
-        # Use the original imputer but ensure it's patched
+        # Patch and impute
         imputer = research_model_obj['imputer']
-        
-        # Ensure the top-level imputer is patched
         for attr in ['sparse_output', '_fill_dtype', '_fit_dtype']:
             if not hasattr(imputer, attr):
                 setattr(imputer, attr, False if attr == 'sparse_output' else np.float64)
@@ -194,12 +225,12 @@ def predict_nutrition_full(data: NutritionFullInput):
         try:
             df_imputed = pd.DataFrame(imputer.transform(df_input), columns=features)
         except Exception as e:
-            print(f"Top-level imputer transform failed, falling back: {e}")
-            df_imputed = df_input # Fallback
+            print(f"Imputer fallback: {e}")
+            df_imputed = df_input
             
         model_24 = research_model_obj['model']
         
-        # Recursive patch for all estimators in the VotingClassifier
+        # Recursive patch for VotingClassifier estimators
         def patch_recursively(obj):
             if hasattr(obj, 'estimators_'):
                 for est in obj.estimators_:
@@ -207,7 +238,6 @@ def predict_nutrition_full(data: NutritionFullInput):
             if hasattr(obj, 'named_steps'):
                 for name, step in obj.named_steps.items():
                     patch_recursively(step)
-            # If it's an imputer, patch it
             if 'Imputer' in str(type(obj)):
                 for attr in ['sparse_output', '_fill_dtype', '_fit_dtype']:
                     if not hasattr(obj, attr):
@@ -218,28 +248,262 @@ def predict_nutrition_full(data: NutritionFullInput):
         # 2. Baseline Prediction
         prob_baseline = float(model_24.predict_proba(df_imputed)[0][1] * 100)
         
-        # 3. Simulation: +20% Folate/Zinc Intervention
-        df_intervention = df_imputed.copy()
-        df_intervention['Mean_Folate'] *= 1.20
-        df_intervention['Mean_Zinc'] *= 1.20
-        df_intervention['Dietary_Folate_Day2'] *= 1.20 # Mirroring the intervention across relevant columns
-        df_intervention['Dietary_Zinc_Day2'] *= 1.20
+        # 3. SMART RECOMMENDATION ENGINE
+        # Test each modifiable nutrient individually
+        recommendations = []
         
-        prob_optimized = float(model_24.predict_proba(df_intervention)[0][1] * 100)
-        impact_score = prob_optimized - prob_baseline
+        # --- Nutrients where HIGHER is better ---
+        for col, info in CLINICAL_TARGETS.items():
+            current_val = float(df_imputed[col].iloc[0])
+            target_val = info['target']
+            
+            if current_val < target_val:
+                # Calculate how much to boost to reach the target
+                boost_ratio = target_val / current_val if current_val > 0 else 1.5
+                boost_pct = round((boost_ratio - 1) * 100, 1)
+                
+                # Simulate the intervention
+                df_sim = df_imputed.copy()
+                df_sim[col] = target_val
+                prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+                impact = prob_sim - prob_baseline
+                
+                if impact > 0.1:  # Only include if meaningful impact
+                    recommendations.append({
+                        "nutrient": info['label'],
+                        "icon": info['icon'],
+                        "current": round(current_val, 1),
+                        "target": round(target_val, 1),
+                        "unit": info['unit'],
+                        "boost_percent": round(boost_pct, 1),
+                        "impact": round(impact, 2),
+                        "food_tip": info['food_tip'],
+                        "status": "deficient"
+                    })
+        
+        # --- Lifestyle factors where LOWER is better ---
+        for col, info in LIFESTYLE_REDUCE_TARGETS.items():
+            current_val = float(df_imputed[col].iloc[0])
+            target_val = info['target']
+            
+            if current_val > target_val:
+                reduce_pct = round(((current_val - target_val) / current_val) * 100, 1)
+                
+                df_sim = df_imputed.copy()
+                df_sim[col] = target_val
+                prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+                impact = prob_sim - prob_baseline
+                
+                if impact > 0.1:
+                    recommendations.append({
+                        "nutrient": info['label'],
+                        "icon": info['icon'],
+                        "current": round(current_val, 1),
+                        "target": round(target_val, 1),
+                        "unit": info['unit'],
+                        "boost_percent": round(-reduce_pct, 1),
+                        "impact": round(impact, 2),
+                        "food_tip": info['food_tip'],
+                        "status": "elevated"
+                    })
+        
+        # Sort by impact (highest first)
+        recommendations.sort(key=lambda x: x['impact'], reverse=True)
+        
+        # 4. Combined optimized prediction (apply ALL recommendations at once)
+        df_optimized = df_imputed.copy()
+        for rec in recommendations:
+            col_name = None
+            for col, info in {**CLINICAL_TARGETS, **LIFESTYLE_REDUCE_TARGETS}.items():
+                if info['label'] == rec['nutrient']:
+                    col_name = col
+                    break
+            if col_name:
+                df_optimized[col_name] = rec['target']
+        
+        prob_optimized = float(model_24.predict_proba(df_optimized)[0][1] * 100)
+        total_impact = prob_optimized - prob_baseline
+        
+        # Build summary recommendation text
+        if len(recommendations) > 0:
+            top_recs = [r['nutrient'] for r in recommendations[:3]]
+            summary = f"Focus on improving: {', '.join(top_recs)}. These changes could increase your success probability by {round(total_impact, 1)}%."
+        else:
+            summary = "Your nutritional profile is well-optimized. Maintain your current diet and lifestyle."
         
         return {
             "success": True,
             "baseline_probability": round(prob_baseline, 2),
             "optimized_probability": round(prob_optimized, 2),
-            "impact_score": round(impact_score, 2),
-            "recommendation": "Increase Folate and Zinc by 20% to reach optimized probability."
+            "impact_score": round(total_impact, 2),
+            "recommendation": summary,
+            "detailed_recommendations": recommendations[:6]  # Top 6
         }
     except Exception as e:
         print(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+
+# --- MEDLLAMA2 DOCTOR RECOMMENDATION ENDPOINT ---
+import httpx
+
+class RecommendationRequest(BaseModel):
+    baseline_probability: float = 0.0
+    optimized_probability: float = 0.0
+    impact_score: float = 0.0
+    age: float = 30.0
+    bmi_category: str = "Normal"
+    sleep: float = 7.0
+    cholesterol: float = 180.0
+    sbp: float = 120.0
+    dbp: float = 80.0
+    recommendations: list = []
+
+@app.post("/api/recommend")
+async def get_doctor_recommendation(data: RecommendationRequest):
+    """Calls local Ollama MedLLaMA2 for personalized doctor-like recommendations"""
+    try:
+        # Build a clear, structured prompt for the medical LLM
+        deficiency_lines = ""
+        for rec in data.recommendations:
+            nutrient = rec.get('nutrient', 'Unknown')
+            current = rec.get('current', 0)
+            target = rec.get('target', 0)
+            unit = rec.get('unit', '')
+            impact = rec.get('impact', 0)
+            deficiency_lines += f"  - {nutrient}: Currently {current} {unit}, should be {target} {unit} (fixing this alone could improve success by +{impact}%)\n"
+        
+        if not deficiency_lines:
+            deficiency_lines = "  - No significant deficiencies detected.\n"
+        
+        prompt = f"""You are a reproductive health specialist providing personalized advice for an IVF patient.
+
+PATIENT PROFILE:
+- Age: {data.age} years
+- BMI Category: {data.bmi_category}
+- Blood Pressure: {data.sbp}/{data.dbp} mmHg
+- Cholesterol: {data.cholesterol} mg/dL
+- Sleep: {data.sleep} hours/night
+
+AI MODEL PREDICTION:
+- Current IVF Success Probability: {data.baseline_probability}%
+- Potential Optimized Probability: {data.optimized_probability}%
+- Possible Improvement: +{data.impact_score}%
+
+IDENTIFIED NUTRITIONAL DEFICIENCIES:
+{deficiency_lines}
+Based on this patient's profile and nutritional analysis, provide:
+1. A brief overall assessment (2-3 sentences)
+2. Top 3 specific dietary recommendations with foods to eat
+3. Lifestyle changes that could help (sleep, exercise, stress)
+4. Any supplements to consider (with suggested dosages)
+5. A motivational closing note
+
+Keep the response concise, warm, and encouraging. Use simple language. Do not use markdown formatting."""
+
+        # Call Ollama local API
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": "medllama2",
+                    "prompt": prompt,
+                    "stream": False
+                }
+            )
+        
+        if response.status_code == 200:
+            result = response.json()
+            llm_response = result.get("response", "Unable to generate recommendation.")
+            return {
+                "success": True,
+                "recommendation": llm_response
+            }
+        else:
+            return {
+                "success": False,
+                "recommendation": f"MedLLaMA2 returned status {response.status_code}. Make sure Ollama is running with: ollama run medllama2"
+            }
+    except httpx.ConnectError:
+        return {
+            "success": False,
+            "recommendation": "Cannot connect to Ollama. Please make sure Ollama is running locally (ollama serve) and medllama2 model is pulled (ollama pull medllama2)."
+        }
+    except Exception as e:
+        print(f"Recommendation error: {str(e)}")
+        return {
+            "success": False,
+            "recommendation": f"Error generating recommendation: {str(e)}"
+        }
+
+class ClinicalRecommendationRequest(BaseModel):
+    baseline_probability: float = 0.0
+    age: float = 30.0
+    amh_level: float = 2.0
+    bmi: float = 22.0
+    prior_sab: int = 0
+    cell_quality: float = 10.0
+
+@app.post("/api/recommend_clinical")
+async def get_clinical_doctor_recommendation(data: ClinicalRecommendationRequest):
+    """Calls local Ollama MedLLaMA2 for personalized clinical IVF recommendations based on 7-feature model"""
+    try:
+        # Build a clear, structured prompt for the medical LLM
+        prompt = f"""You are a reproductive health specialist providing personalized advice for an IVF patient.
+
+PATIENT CLINICAL PROFILE:
+- Age: {data.age} years
+- AMH Level: {data.amh_level} ng/mL
+- BMI: {data.bmi}
+- Prior Spontaneous Abortions (SAB): {data.prior_sab}
+- Day 3 Cell Quality / Fragmentation: {data.cell_quality}%
+
+AI MODEL PREDICTION:
+- Current IVF Success Probability: {data.baseline_probability}%
+
+Based on this patient's clinical profile, provide:
+1. A brief overall clinical assessment (2-3 sentences)
+2. Recommendations for improving or managing these specific clinical parameters (e.g., if AMH is low, or fragmentation is high)
+3. Lifestyle changes or supplements that could help improve outcomes based on this profile
+4. A motivational closing note
+
+Keep the response concise, warm, and encouraging. Use simple language. Do not use markdown formatting."""
+
+        # Call Ollama local API
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": "medllama2",
+                    "prompt": prompt,
+                    "stream": False
+                }
+            )
+        
+        if response.status_code == 200:
+            result = response.json()
+            llm_response = result.get("response", "Unable to generate recommendation.")
+            return {
+                "success": True,
+                "recommendation": llm_response
+            }
+        else:
+            return {
+                "success": False,
+                "recommendation": f"MedLLaMA2 returned status {response.status_code}. Make sure Ollama is running with: ollama run medllama2"
+            }
+    except httpx.ConnectError:
+        return {
+            "success": False,
+            "recommendation": "Cannot connect to Ollama. Please make sure Ollama is running locally (ollama serve) and medllama2 model is pulled (ollama pull medllama2)."
+        }
+    except Exception as e:
+        print(f"Clinical Recommendation error: {str(e)}")
+        return {
+            "success": False,
+            "recommendation": f"Error generating clinical recommendation: {str(e)}"
+        }
 
 @app.get("/")
 def home():
