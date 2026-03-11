@@ -1,34 +1,34 @@
 import React from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    SafeAreaView,
-    Dimensions,
-    TouchableOpacity
-} from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, TouchableOpacity, StatusBar, Platform, Animated } from 'react-native';
+import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop, Shadow } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // Circular Progress Component
 const SuccessRing = ({ percentage = 68 }) => {
-    const radius = 80;
-    const strokeWidth = 15;
+    const radius = 90;
+    const strokeWidth = 18;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
     return (
         <View style={styles.ringContainer}>
+            <View style={styles.ringGlow} />
             <Svg width={radius * 2 + strokeWidth} height={radius * 2 + strokeWidth}>
+                <Defs>
+                    <SvgGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <Stop offset="0%" stopColor="#2DD4BF" />
+                        <Stop offset="100%" stopColor="#0D9488" />
+                    </SvgGradient>
+                </Defs>
                 <G rotation="-90" origin={`${radius + strokeWidth / 2}, ${radius + strokeWidth / 2}`}>
                     <Circle
                         cx={radius + strokeWidth / 2}
                         cy={radius + strokeWidth / 2}
                         r={radius}
-                        stroke="#E0E0E0"
+                        stroke="rgba(241, 245, 249, 0.5)"
                         strokeWidth={strokeWidth}
                         fill="transparent"
                     />
@@ -36,7 +36,7 @@ const SuccessRing = ({ percentage = 68 }) => {
                         cx={radius + strokeWidth / 2}
                         cy={radius + strokeWidth / 2}
                         r={radius}
-                        stroke={theme.colors.primary}
+                        stroke="url(#ringGradient)"
                         strokeWidth={strokeWidth}
                         fill="transparent"
                         strokeDasharray={circumference}
@@ -47,7 +47,7 @@ const SuccessRing = ({ percentage = 68 }) => {
             </Svg>
             <View style={styles.ringTextContainer}>
                 <Text style={styles.ringPercentage}>{percentage}%</Text>
-                <Text style={styles.ringLabel}>Success Rate</Text>
+                <Text style={styles.ringLabel}>Confidence</Text>
             </View>
         </View>
     );
@@ -56,38 +56,46 @@ const SuccessRing = ({ percentage = 68 }) => {
 // Horizontal Bar Chart Component
 const FactorBar = ({ label, value, color }) => (
     <View style={styles.factorRow}>
-        <Text style={styles.factorLabel}>{label}</Text>
+        <View style={styles.factorLabelWrapper}>
+            <Text style={styles.factorLabel}>{label}</Text>
+            <Text style={styles.factorValueText}>{value}</Text>
+        </View>
         <View style={styles.factorBarBg}>
-            <View style={[styles.factorBarFill, { width: value, backgroundColor: color }]} />
+            <LinearGradient
+                colors={[color, color + 'CC']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.factorBarFill, { width: value }]}
+            />
         </View>
     </View>
 );
 
 // Journey Step Component
-const JourneyStep = ({ icon, label, isLast }) => (
+const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
     <View style={styles.journeyStep}>
         <View style={styles.journeyLeft}>
-            <View style={[styles.journeyIconCircle, { backgroundColor: theme.colors.primary }]}>
-                <Text style={{ color: '#FFF' }}>✓</Text>
+            <View style={[
+                styles.journeyNode, 
+                isCompleted && styles.nodeCompleted,
+                isCurrent && styles.nodeCurrent
+            ]}>
+                {isCompleted ? (
+                    <Text style={styles.nodeIcon}>✓</Text>
+                ) : isCurrent ? (
+                    <View style={styles.nodeCurrentInner} />
+                ) : (
+                    <View style={styles.nodePendingInner} />
+                )}
             </View>
-            {!isLast && <View style={styles.journeyLine} />}
+            {!isLast && <View style={[styles.journeyLine, isCompleted && styles.lineCompleted]} />}
         </View>
         <View style={styles.journeyContent}>
-            <Text style={styles.journeyLabel}>{label}</Text>
-        </View>
-    </View>
-);
-
-const JourneyStepPending = ({ icon, label, isLast }) => (
-    <View style={styles.journeyStep}>
-        <View style={styles.journeyLeft}>
-            <View style={[styles.journeyIconCircle, { backgroundColor: '#FFCC80' }]}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFF' }} />
-            </View>
-            {!isLast && <View style={[styles.journeyLine, { backgroundColor: '#E0E0E0' }]} />}
-        </View>
-        <View style={styles.journeyContent}>
-            <Text style={styles.journeyLabel}>{label}</Text>
+            <Text style={[
+                styles.journeyLabel, 
+                (isCompleted || isCurrent) ? styles.labelActive : styles.labelPending
+            ]}>{label}</Text>
+            {isCurrent && <Text style={styles.currentTag}>In Progress</Text>}
         </View>
     </View>
 );
@@ -95,54 +103,88 @@ const JourneyStepPending = ({ icon, label, isLast }) => (
 export default function ResultScreen({ navigation, route }) {
     const params = route.params || {};
 
-    // Calculate visual factor widths based on real data ranges
-    // Age: 18-50 (lower is better) -> (50-age)/(50-18) * 100
     const ageFactor = Math.max(10, Math.min(95, ((50 - (parseFloat(params.age) || 34)) / 32) * 100));
-
-    // AMH: 0.1-5.0 (higher is better) -> amh/5.0 * 100
     const amhFactor = Math.max(10, Math.min(95, ((parseFloat(params.amh_level || params.amhLevel) || 2) / 5) * 100));
-
-    // BMI Index (Visual representation)
     const bmiVal = parseFloat(params.bmi) || 22.0;
     const bmiFactor = Math.max(10, Math.min(95, (1 - Math.abs(22 - bmiVal) / 20) * 100));
-
-    // Fragmentation (Visual representation)
     const fragVal = parseFloat(params.d3_fragmentation || params.freshD3Fragmentation) || 10;
     const fragFactor = Math.max(10, Math.min(95, ((30 - fragVal) / 30) * 100));
 
-    const successRate = params.predictionSuccess !== undefined ? Math.round(params.predictionSuccess) : 59;
+    const successRate = params.predictionSuccess !== undefined ? Math.round(params.predictionSuccess) : 48;
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.headerPanel}>
-                <Text style={styles.headerTitle}>Your Personalized Results</Text>
-                <Text style={styles.headerSubtitle}>Based on your unique profile, {params.name || 'User'}</Text>
-            </View>
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" />
+            
+            {/* Immersive Background */}
+            <LinearGradient
+                colors={['#0F766E', '#0D9488', '#0F766E']}
+                style={styles.headerBackground}
+            />
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                <View style={styles.resultCard}>
-                    <Text style={styles.sectionTitle}>IVF Success Probability</Text>
-                    <SuccessRing percentage={successRate} />
-                    <View style={styles.separator} />
-                    <Text style={styles.sectionTitleAlignLeft}>Key Influencing Factors</Text>
-                    <View style={styles.factorsContainer}>
-                        <FactorBar label="Age" value={`${ageFactor.toFixed(0)}%`} color="#4DB6AC" />
-                        <FactorBar label="AMH Level" value={`${amhFactor.toFixed(0)}%`} color="#FF8A65" />
-                        <FactorBar label="BMI Index" value={`${bmiFactor.toFixed(0)}%`} color="#BA68C8" />
-                        <FactorBar label="Cell Quality" value={`${fragFactor.toFixed(0)}%`} color="#81C784" />
+            {/* Decorative Glassmorphism Circles */}
+            <View style={[styles.bgCircle, { top: -40, right: -40, width: 220, height: 220, opacity: 0.1 }]} />
+            <View style={[styles.bgCircle, { top: 100, left: -60, width: 180, height: 180, opacity: 0.05 }]} />
+
+            <SafeAreaView style={{ flex: 1 }}>
+                <View style={styles.topNav}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <Text style={styles.backIcon}>←</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.navTitle}>Assessment Report</Text>
+                    <View style={{ width: 44 }} />
+                </View>
+
+                <ScrollView 
+                    style={styles.scrollContainer}
+                    contentContainerStyle={styles.scrollContent} 
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={styles.introSection}>
+                        <Text style={styles.headerTitle}>Your Personalized Results</Text>
+                        <Text style={styles.headerSubtitle}>Based on your unique profile, {params.name || 'User'}</Text>
+                    </View>
+
+                    {/* Main Results Interaction */}
+                    <View style={[styles.card, styles.resultCard]}>
+                        <View style={styles.cardHeader}>
+                             <View style={styles.tag}>
+                                 <Text style={styles.tagText}>Clinical AI Analysis</Text>
+                             </View>
+                             <Text style={styles.sectionHeader}>IVF Success Probability</Text>
+                        </View>
+
+                        <SuccessRing percentage={successRate} />
+                        
+                        <View style={styles.divider} />
+                        
+                        <View style={styles.cardHeader}>
+                            <Text style={styles.sectionHeaderSub}>Key Influencing Factors</Text>
+                            <Text style={styles.impactLabel}>Overall Impact</Text>
+                        </View>
+                        <View style={styles.factorsContainer}>
+                            <FactorBar label="Age" value={`${ageFactor.toFixed(0)}%`} color="#0D9488" />
+                            <FactorBar label="AMH Level" value={`${amhFactor.toFixed(0)}%`} color="#F97316" />
+                            <FactorBar label="BMI Index" value={`${bmiFactor.toFixed(0)}%`} color="#8B5CF6" />
+                            <FactorBar label="Cell Quality" value={`${fragFactor.toFixed(0)}%`} color="#10B981" />
+                        </View>
+                    </View>
+
+
+                {/* Journey Section */}
+                <View style={[styles.card, styles.journeyCard]}>
+                    <Text style={styles.sectionHeaderSub}>Your IVF Journey</Text>
+                    <View style={styles.journeyContainer}>
+                        <JourneyStep label="Initial Consultation" isCompleted />
+                        <JourneyStep label="Stimulation Phase" isCompleted />
+                        <JourneyStep label="Post-Lab Analysis" isCurrent />
+                        <JourneyStep label="Pre-Transfer" isLast />
                     </View>
                 </View>
-                <View style={styles.card}>
-                    <Text style={[styles.sectionTitleAlignLeft, { marginBottom: 20 }]}>Your IVF Journey</Text>
-                    <JourneyStep label="Initial Consultation" />
-                    <JourneyStep label="Stimulation Phase" />
-                    <JourneyStepPending label="Post-Lab Analysis" />
-                    <JourneyStepPending label="Pre-Transfer" isLast />
-                </View>
 
-                {/* Patient Profile Section - To show "Original Data" */}
+                {/* Patient Profile Section */}
                 <View style={styles.card}>
-                    <Text style={[styles.sectionTitleAlignLeft, { marginBottom: 16 }]}>Clinical Profile Summary</Text>
+                    <Text style={[styles.sectionHeaderSub, { marginBottom: 16 }]}>Clinical Profile Summary</Text>
                     <View style={styles.profileGrid}>
                         <View style={styles.profileItem}>
                             <Text style={styles.profileLabel}>Age</Text>
@@ -162,80 +204,288 @@ export default function ResultScreen({ navigation, route }) {
                         </View>
                     </View>
                 </View>
-                <Text style={styles.heading}>Your Next Steps</Text>
-                <Text style={styles.subHeading}>Now that you have your prediction, let's work together to optimize your fertility journey.</Text>
-                <TouchableOpacity
-                    style={styles.actionCard}
-                    activeOpacity={0.8}
-                    onPress={() => navigation.navigate('Nutrition')}
-                >
-                    <View style={[styles.iconBox, { backgroundColor: '#E0F2F1' }]}>
-                        <Text style={{ fontSize: 24 }}>🍃</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.actionTitle}>Improve Your Foundation</Text>
-                        <Text style={styles.actionDesc}>Start Your Personalized Nutrition Plan</Text>
-                    </View>
-                    <Text style={{ color: theme.colors.primary, fontSize: 20 }}>→</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionCard} activeOpacity={0.8}>
-                    <View style={[styles.iconBox, { backgroundColor: '#F3E5F5' }]}>
-                        <Text style={{ fontSize: 24 }}>🧠</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.actionTitle}>Support Your Well-being</Text>
-                        <Text style={styles.actionDesc}>Open Your Psychological Wellness Hub</Text>
-                    </View>
-                    <Text style={{ color: '#CE93D8', fontSize: 20 }}>→</Text>
-                </TouchableOpacity>
-                <View style={{ height: 40 }} />
+
+                <View style={{ height: 60 }} />
             </ScrollView>
         </SafeAreaView>
+    </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.colors.background },
-    headerPanel: {
-        backgroundColor: theme.colors.primary,
-        paddingTop: theme.spacing.xl,
-        paddingBottom: 60,
-        paddingHorizontal: theme.spacing.l,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        marginBottom: -40,
-        zIndex: 0,
-        ...theme.shadows.medium,
+    container: {
+        flex: 1,
+        backgroundColor: theme.colors.background,
     },
-    headerTitle: { ...theme.typography.heading, color: '#FFFFFF', fontSize: 22, marginBottom: 8, textAlign: 'center' },
-    headerSubtitle: { ...theme.typography.subheading, color: 'rgba(255,255,255,0.8)', fontSize: 14, textAlign: 'center' },
-    scrollContent: { paddingHorizontal: theme.spacing.m, paddingTop: 0 },
-    resultCard: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.l, padding: theme.spacing.l, marginBottom: 20, ...theme.shadows.medium, alignItems: 'center' },
-    card: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.l, padding: theme.spacing.l, marginBottom: 24, ...theme.shadows.soft },
-    sectionTitle: { ...theme.typography.heading, fontSize: 18, marginBottom: 24 },
-    sectionTitleAlignLeft: { ...theme.typography.heading, fontSize: 16, alignSelf: 'flex-start', marginBottom: 16 },
-    ringContainer: { alignItems: 'center', justifyContent: 'center', marginBottom: 32 },
-    ringTextContainer: { position: 'absolute', alignItems: 'center' },
-    ringPercentage: { fontSize: 56, fontWeight: '700', color: theme.colors.text, fontVariant: ['tabular-nums'] },
-    ringLabel: { fontSize: 14, color: theme.colors.textLight, marginTop: 4 },
-    separator: { height: 1, backgroundColor: theme.colors.inputBorder, width: '100%', marginBottom: 24 },
-    factorsContainer: { width: '100%' },
-    factorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-    factorLabel: { width: 70, fontSize: 13, color: theme.colors.textLight, textAlign: 'right', marginRight: 12, fontWeight: '500' },
-    factorBarBg: { flex: 1, height: 8, borderRadius: 4, backgroundColor: theme.colors.inputBackground },
-    factorBarFill: { height: '100%', borderRadius: 4 },
-    journeyStep: { flexDirection: 'row', marginBottom: 0 },
-    journeyLeft: { alignItems: 'center', marginRight: 16, width: 24 },
-    journeyIconCircle: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-    journeyLine: { width: 2, flex: 1, backgroundColor: theme.colors.primary, minHeight: 30, marginVertical: -2 },
-    journeyContent: { paddingBottom: 32, justifyContent: 'center', flex: 1 },
-    journeyLabel: { fontSize: 15, color: theme.colors.text, fontWeight: '500', marginTop: -2 },
-    heading: { ...theme.typography.heading, fontSize: 18, marginBottom: 8, marginLeft: 4 },
-    subHeading: { ...theme.typography.subheading, fontSize: 14, marginBottom: 20, marginLeft: 4 },
-    actionCard: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.l, padding: 16, marginBottom: 16, flexDirection: 'row', alignItems: 'center', ...theme.shadows.soft },
-    iconBox: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-    actionTitle: { fontSize: 16, fontWeight: '600', color: theme.colors.text, marginBottom: 4 },
-    actionDesc: { fontSize: 12, color: theme.colors.textLight },
+    headerBackground: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: height * 0.45,
+        borderBottomLeftRadius: 40,
+        borderBottomRightRadius: 40,
+    },
+    bgCircle: {
+        position: 'absolute',
+        backgroundColor: 'rgba(255, 255, 255, 1)',
+        borderRadius: 999,
+    },
+    topNav: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        height: 60,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backIcon: {
+        fontSize: 22,
+        color: '#FFFFFF',
+    },
+    navTitle: {
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#FFFFFF',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    introSection: {
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 40,
+        paddingHorizontal: 40,
+    },
+    headerTitle: {
+        fontSize: 28,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#FFFFFF',
+        letterSpacing: -0.5,
+        textAlign: 'center',
+    },
+    headerSubtitle: {
+        fontSize: 15,
+        color: 'rgba(255,255,255,0.85)',
+        fontFamily: 'PlusJakartaSans_500Medium',
+        marginTop: 8,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    scrollContainer: {
+        flex: 1,
+        zIndex: 10,
+        elevation: 5,
+    },
+    scrollContent: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+    },
+    card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 28,
+        padding: 24,
+        ...theme.shadows.premium,
+        marginBottom: 24,
+    },
+    resultCard: {
+        alignItems: 'center',
+        padding: 24,
+        marginTop: -10, // Slight overlap for the card specifically
+    },
+    cardHeader: {
+        width: '100%',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    tag: {
+        backgroundColor: 'rgba(13, 148, 136, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginBottom: 10,
+    },
+    tagText: {
+        fontSize: 10,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0D9488',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    sectionHeader: {
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#1E293B',
+        letterSpacing: -0.5,
+    },
+    sectionHeaderSub: {
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#1E293B',
+        alignSelf: 'flex-start',
+    },
+    impactLabel: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#94A3B8',
+        alignSelf: 'flex-start',
+        marginTop: 4,
+    },
+    ringContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 32,
+    },
+    ringTextContainer: {
+        position: 'absolute',
+        alignItems: 'center',
+    },
+    ringGlow: {
+        position: 'absolute',
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        backgroundColor: 'rgba(13, 148, 136, 0.08)',
+    },
+    ringPercentage: {
+        fontSize: 56,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+        color: '#0D9488',
+        letterSpacing: -2,
+    },
+    ringLabel: {
+        fontSize: 11,
+        color: '#64748B',
+        fontFamily: 'PlusJakartaSans_700Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginTop: -4,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F1F5F9',
+        width: '100%',
+        marginVertical: 24,
+    },
+    factorsContainer: {
+        width: '100%',
+    },
+    factorRow: {
+        marginBottom: 20,
+    },
+    factorLabelWrapper: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    factorLabel: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_600SemiBold',
+        color: '#475569',
+    },
+    factorValueText: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0F172A',
+    },
+    factorBarBg: {
+        height: 6,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    factorBarFill: {
+        height: '100%',
+        borderRadius: 5,
+    },
+    journeyCard: {
+        paddingTop: 24,
+    },
+    journeyContainer: {
+        paddingLeft: 4,
+    },
+    journeyStep: {
+        flexDirection: 'row',
+        minHeight: 60,
+    },
+    journeyLeft: {
+        alignItems: 'center',
+        marginRight: 20,
+        width: 24,
+    },
+    journeyNode: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#F1F5F9',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2,
+    },
+    nodeCompleted: {
+        backgroundColor: '#0D9488',
+    },
+    nodeCurrent: {
+        backgroundColor: '#FFFFFF',
+        borderWidth: 2,
+        borderColor: '#0D9488',
+    },
+    nodeIcon: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: '800',
+    },
+    nodeCurrentInner: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#0D9488',
+    },
+    nodePendingInner: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#CBD5E1',
+    },
+    journeyLine: {
+        width: 2,
+        flex: 1,
+        backgroundColor: '#F1F5F9',
+        marginVertical: -2,
+    },
+    lineCompleted: {
+        backgroundColor: '#0D9488',
+    },
+    journeyContent: {
+        flex: 1,
+        paddingBottom: 30,
+        paddingTop: 2,
+    },
+    journeyLabel: {
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    labelActive: {
+        color: '#0F172A',
+    },
+    labelPending: {
+        color: '#94A3B8',
+    },
+    currentTag: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0D9488',
+        textTransform: 'uppercase',
+        marginTop: 4,
+        letterSpacing: 0.5,
+    },
     profileGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -243,22 +493,24 @@ const styles = StyleSheet.create({
     },
     profileItem: {
         width: '48%',
-        backgroundColor: '#F7F9FC',
-        borderRadius: 12,
-        padding: 12,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 16,
+        padding: 16,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#EDF2F7',
+        borderColor: '#F1F5F9',
     },
     profileLabel: {
         fontSize: 12,
-        color: '#718096',
-        marginBottom: 4,
-        fontWeight: '600',
+        color: '#64748B',
+        marginBottom: 6,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     profileValue: {
         fontSize: 15,
-        color: '#2D3748',
-        fontWeight: '700',
+        color: '#0F172A',
+        fontFamily: 'PlusJakartaSans_700Bold',
     }
 });

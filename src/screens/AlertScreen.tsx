@@ -207,12 +207,12 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#F7FBFC" },
 
   header: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 10 },
-  title: { fontSize: 22, fontWeight: "900", color: "#111827" },
-  subtitle: { marginTop: 4, color: "#64748B", fontWeight: "700" },
+  title: { fontSize: 22, fontFamily: 'PlusJakartaSans_800ExtraBold', color: "#111827" },
+  subtitle: { marginTop: 4, color: "#64748B", fontFamily: 'PlusJakartaSans_500Medium' },
 
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
 
-  sectionTitle: { fontSize: 15, fontWeight: "900", color: "#111827", marginBottom: 10 },
+  sectionTitle: { fontSize: 15, fontFamily: 'PlusJakartaSans_700Bold', color: "#111827", marginBottom: 10 },
 
   card: {
     backgroundColor: "#FFFFFF",
@@ -227,13 +227,13 @@ const styles = StyleSheet.create({
   },
 
   row: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
-  cardTitle: { flex: 1, fontWeight: "900", color: "#111827" },
-  time: { color: "#94A3B8", fontWeight: "800", fontSize: 12 },
+  cardTitle: { flex: 1, fontFamily: 'PlusJakartaSans_700Bold', color: "#111827" },
+  time: { color: "#94A3B8", fontFamily: 'PlusJakartaSans_500Medium', fontSize: 12 },
 
-  msg: { marginTop: 8, color: "#475569", fontWeight: "600", lineHeight: 18 },
+  msg: { marginTop: 8, color: "#475569", fontFamily: 'PlusJakartaSans_400Regular', lineHeight: 18 },
 
   badgeRow: { flexDirection: "row", alignItems: "center", marginTop: 10, gap: 10 },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  badgeText: { fontSize: 12, fontWeight: "900", color: "#111827" },
-  newText: { fontSize: 12, fontWeight: "900", color: "#E11D48" },
+  badgeText: { fontSize: 12, fontFamily: 'PlusJakartaSans_800ExtraBold', color: "#111827" },
+  newText: { fontSize: 12, fontFamily: 'PlusJakartaSans_800ExtraBold', color: "#E11D48" },
 });

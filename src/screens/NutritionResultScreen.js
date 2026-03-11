@@ -7,239 +7,355 @@ import {
     SafeAreaView,
     Dimensions,
     TouchableOpacity,
-    StatusBar
+    StatusBar,
+    Platform
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
 const { width } = Dimensions.get('window');
 
-
-
 export default function NutritionResultScreen({ navigation, route }) {
     const params = route.params || {};
     const {
-        predictionSuccess = 15,
-        optimizedProbability = 33,
-        impactScore = 18
+        predictionSuccess = 0,
+        optimizedProbability = 0,
+        impactScore = 0
     } = params;
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <StatusBar barStyle="light-content" />
-
-            <View style={styles.headerPanel}>
-                <TouchableOpacity
-                    style={styles.backButtonTop}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Text style={styles.backButtonTopText}>← Return to Analysis</Text>
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>AI Simulation Report</Text>
-                <Text style={styles.headerSubtitle}>Personalized Nutri-Genomic Impact Analysis</Text>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                {/* Impact Card - Focusing on Recommendation only */}
-                <View style={[styles.card, styles.impactCard]}>
-                    <Text style={styles.cardHeader}>Nutritional Simulation Result</Text>
-
-                    <View style={styles.impactBadge}>
-                        <Text style={styles.impactBadgeText}>📈 DIETARY IMPACT SCORE: +{impactScore.toFixed(1)}%</Text>
+            
+            <LinearGradient
+                colors={['#0D9488', '#0F766E']}
+                style={styles.headerPanel}
+            >
+                <SafeAreaView>
+                    <View style={styles.headerTop}>
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => navigation.goBack()}
+                        >
+                            <Text style={styles.backButtonText}>←</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.headerLabel}>Analysis Results</Text>
                     </View>
+                    <View style={styles.headerTextWrapper}>
+                        <Text style={styles.headerTitle}>AI Simulation Report</Text>
+                        <Text style={styles.headerSubtitle}>Personalized Nutri-Genomic Impact Analysis</Text>
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
 
-                    <Text style={styles.impactInfoText}>
-                        Predicted success increase after Folate & Zinc intervention
-                    </Text>
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent} 
+                showsVerticalScrollIndicator={false}
+            >
+
+                {/* Recommendations Section */}
+                <View style={styles.sectionHeaderBox}>
+                    <Text style={styles.sectionHeader}>Precision Interventions</Text>
                 </View>
-
-                {/* Recommendations */}
-                <Text style={styles.sectionTitle}>Precision Recommendations</Text>
 
                 <View style={styles.recommendationCard}>
-                    <View style={styles.recHeaderRow}>
-                        <View style={styles.iconCircle}><Text style={{ fontSize: 20 }}>💊</Text></View>
-                        <Text style={styles.recTitle}>Micronutrient Upscaling</Text>
+                    <View style={styles.recHeader}>
+                        <View style={styles.iconCircle}>
+                            <Text style={styles.recIcon}>💊</Text>
+                        </View>
+                        <View>
+                            <Text style={styles.recTitle}>Micronutrient Upscaling</Text>
+                            <Text style={styles.recSub}>Suggested biochemical adjustment</Text>
+                        </View>
                     </View>
-                    <Text style={styles.recBody}>
-                        Our Ensemble AI suggests a <Text style={{ fontWeight: '700', color: theme.colors.primary }}>+20% strategic increase</Text> in Folate and Zinc intake.
-                        This biological adjustment is predicted to widen your implantation window by approximately <Text style={{ fontWeight: '700' }}>{impactScore.toFixed(1)}%</Text>.
-                    </Text>
-                    <View style={styles.nutrientDuo}>
-                        <View style={styles.nutrientChip}><Text style={styles.chipText}>Increased Folate</Text></View>
-                        <View style={styles.nutrientChip}><Text style={styles.chipText}>Increased Zinc</Text></View>
+                    
+                    <View style={styles.recBodyBox}>
+                        <Text style={styles.recBody}>
+                            Based on your 24-marker profile, a <Text style={styles.highlight}>+20% strategic increase</Text> in Folate and Zinc is identified as the optimal intervention path.
+                        </Text>
+                        <Text style={styles.recBodySecondary}>
+                            This biological shift is predicted to expand your implantation window and enhance cellular receptivity.
+                        </Text>
+                    </View>
+
+                    <View style={styles.tagsRow}>
+                        <View style={styles.tag}>
+                            <Text style={styles.tagText}>High Impact Folate</Text>
+                        </View>
+                        <View style={styles.tag}>
+                            <Text style={styles.tagText}>Bio-available Zinc</Text>
+                        </View>
                     </View>
                 </View>
 
-                {/* Clinical Context */}
-                <View style={styles.infoBox}>
-                    <Text style={styles.infoText}>
-                        💡 These results are derived from a 24-feature Neural Ensemble model trained on NHANES clinical cohorts specifically for IVF outcome prediction.
+                {/* Technical Insight */}
+                <View style={styles.insightCard}>
+                    <Text style={styles.insightIcon}>💡</Text>
+                    <Text style={styles.insightText}>
+                        Results synthesized from a <Text style={{fontWeight: '700'}}>24-feature Neural Ensemble</Text> trained on clinical cohorts for high-precision IVF outcome prediction.
                     </Text>
                 </View>
 
                 <TouchableOpacity
-                    style={styles.homeButton}
+                    style={styles.primaryButton}
                     onPress={() => navigation.navigate('WellnessHome')}
                 >
-                    <Text style={styles.homeButtonText}>Save Report to Profile</Text>
+                    <Text style={styles.primaryButtonText}>Sync to Health Profile</Text>
                 </TouchableOpacity>
 
-                <View style={{ height: 40 }} />
+                <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={styles.secondaryButtonText}>Modify Input Data</Text>
+                </TouchableOpacity>
+
+                <View style={{ height: 60 }} />
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F7F9FC',
+        backgroundColor: theme.colors.background,
     },
     headerPanel: {
-        backgroundColor: theme.colors.primary,
-        paddingTop: 50,
         paddingBottom: 40,
-        paddingHorizontal: 24,
         borderBottomLeftRadius: 36,
         borderBottomRightRadius: 36,
+        ...theme.shadows.premium,
     },
-    backButtonTop: {
-        marginBottom: 16,
-    },
-    backButtonTopText: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    headerTitle: {
-        fontSize: 26,
-        fontWeight: '800',
-        color: '#FFFFFF',
-        marginBottom: 4,
-    },
-    headerSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.8)',
-    },
-    scrollContent: {
-        paddingHorizontal: 20,
-        marginTop: -30,
-    },
-    card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 24,
-        padding: 24,
-        ...theme.shadows.medium,
-        marginBottom: 24,
-    },
-    impactCard: {
-        alignItems: 'center',
-    },
-    cardHeader: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#2D3748',
-        marginBottom: 24,
-    },
-    impactBadge: {
-        backgroundColor: '#EBF8FF',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 30,
-        marginTop: 8,
-        borderWidth: 1,
-        borderColor: '#BEE3F8',
-    },
-    impactInfoText: {
-        fontSize: 13,
-        color: '#718096',
-        marginTop: 16,
-        fontWeight: '500',
-    },
-    impactBadgeText: {
-        color: '#2B6CB0',
-        fontWeight: '800',
-        fontSize: 15,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#2D3748',
-        marginBottom: 16,
-        marginLeft: 4,
-    },
-    recommendationCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        padding: 20,
-        borderLeftWidth: 6,
-        borderLeftColor: theme.colors.primary,
-        ...theme.shadows.soft,
-        marginBottom: 20,
-    },
-    recHeaderRow: {
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
+        paddingHorizontal: 24,
+        marginTop: Platform.OS === 'ios' ? 10 : 20,
     },
-    iconCircle: {
+    backButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#E3F2FD',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    backButtonText: {
+        color: '#FFFFFF',
+        fontSize: 20,
+        fontWeight: '300',
+    },
+    headerLabel: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    headerTextWrapper: {
+        paddingHorizontal: 24,
+        marginTop: 24,
+    },
+    headerTitle: {
+        fontSize: 28,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#FFFFFF',
+        marginBottom: 4,
+        letterSpacing: -0.5,
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.75)',
+        fontFamily: 'PlusJakartaSans_500Medium',
+    },
+    scrollContent: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
+    },
+    card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 28,
+        padding: 24,
+        ...theme.shadows.premium,
+        marginBottom: 32,
+    },
+    scoreCard: {
+        alignItems: 'center',
+        marginTop: -50, // Floating effect
+    },
+    scoreRow: {
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        width: '100%',
+        marginBottom: 24,
+    },
+    scoreItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    scoreDivider: {
+        width: 1,
+        height: 40,
+        backgroundColor: '#E2E8F0',
+    },
+    scoreLabel: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#64748B',
+        textTransform: 'uppercase',
+        marginBottom: 8,
+        letterSpacing: 0.5,
+    },
+    scoreValue: {
+        fontSize: 32,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+        color: '#0F172A',
+    },
+    impactBadgeWrapper: {
+        width: '100%',
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    impactBadge: {
+        paddingVertical: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    impactBadgeText: {
+        color: '#FFFFFF',
+        fontFamily: 'PlusJakartaSans_700Bold',
+        fontSize: 15,
+        letterSpacing: 0.5,
+    },
+    sectionHeaderBox: {
+        marginBottom: 16,
+        paddingLeft: 4,
+    },
+    sectionHeader: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+        color: theme.colors.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+    },
+    recommendationCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 24,
+        ...theme.shadows.soft,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    recHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    iconCircle: {
+        width: 52,
+        height: 52,
+        borderRadius: 16,
+        backgroundColor: '#F0FDFA',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+    },
+    recIcon: {
+        fontSize: 26,
     },
     recTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: '#1A202C',
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0F172A',
+    },
+    recSub: {
+        fontSize: 12,
+        color: '#64748B',
+        fontFamily: 'PlusJakartaSans_500Medium',
+    },
+    recBodyBox: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
     },
     recBody: {
-        fontSize: 14,
-        lineHeight: 22,
-        color: '#4A5568',
-        marginBottom: 16,
+        fontSize: 15,
+        lineHeight: 24,
+        color: '#334155',
+        marginBottom: 12,
+        fontFamily: 'PlusJakartaSans_400Regular',
     },
-    nutrientDuo: {
+    recBodySecondary: {
+        fontSize: 13,
+        color: '#64748B',
+        lineHeight: 20,
+        fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    highlight: {
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: theme.colors.primary,
+    },
+    tagsRow: {
         flexDirection: 'row',
     },
-    nutrientChip: {
-        backgroundColor: '#F7FAFC',
-        paddingHorizontal: 16,
+    tag: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 12,
         marginRight: 10,
         borderWidth: 1,
         borderColor: '#E2E8F0',
     },
-    chipText: {
+    tagText: {
         fontSize: 12,
-        fontWeight: '700',
-        color: '#718096',
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#475569',
     },
-    infoBox: {
+    insightCard: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(15, 23, 42, 0.05)',
         padding: 16,
-        backgroundColor: 'rgba(0,0,0,0.03)',
-        borderRadius: 12,
-        marginBottom: 30,
-    },
-    infoText: {
-        fontSize: 12,
-        color: '#718096',
-        lineHeight: 18,
-    },
-    homeButton: {
-        backgroundColor: '#2D3748',
-        paddingVertical: 18,
         borderRadius: 16,
+        marginBottom: 32,
         alignItems: 'center',
     },
-    homeButtonText: {
+    insightIcon: {
+        fontSize: 20,
+        marginRight: 16,
+    },
+    insightText: {
+        flex: 1,
+        fontSize: 12,
+        color: '#475569',
+        lineHeight: 18,
+        fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    primaryButton: {
+        backgroundColor: '#0F172A',
+        paddingVertical: 20,
+        borderRadius: 18,
+        alignItems: 'center',
+        marginBottom: 12,
+        ...theme.shadows.soft,
+    },
+    primaryButtonText: {
         color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '800',
+        fontSize: 17,
+        fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    secondaryButton: {
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    secondaryButtonText: {
+        color: '#64748B',
+        fontSize: 15,
+        fontFamily: 'PlusJakartaSans_700Bold',
     }
 });

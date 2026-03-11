@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,40 +7,34 @@ import {
   TouchableOpacity, 
   SafeAreaView,
   TextInput,
-  Switch
+  Switch,
+  Platform,
+  KeyboardAvoidingView
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
 export default function ProfileSetupStep2Screen({ navigation, route }) {
-  // Get data from Step 1
   const step1Data = route.params || {};
 
   const [amhLevel, setAmhLevel] = useState('');
-
-
   const [previousIVF, setPreviousIVF] = useState(false);
   const [eggsRetrieved, setEggsRetrieved] = useState('');
-
-  // New Clinical Data State
   const [priorSAB, setPriorSAB] = useState('');
   const [freshD3CellCount, setFreshD3CellCount] = useState('');
-  const [freshD3Fragmentation, setFreshD3Fragmentation] = useState(''); // percent
-
-  // Hormone Velocity Calculator State
+  const [freshD3Fragmentation, setFreshD3Fragmentation] = useState('');
   const [day2E2, setDay2E2] = useState('');
   const [triggerDayE2, setTriggerDayE2] = useState('');
   const [stimulationDays, setStimulationDays] = useState('');
   const [calculatedVelocity, setCalculatedVelocity] = useState('0.00');
 
-  // Calculate Velocity automatically
-  React.useEffect(() => {
+  useEffect(() => {
     const d2 = parseFloat(day2E2);
     const trig = parseFloat(triggerDayE2);
     const days = parseFloat(stimulationDays);
 
     if (!isNaN(d2) && !isNaN(trig) && !isNaN(days) && days > 0) {
-        const velocity = (trig - d2) / days;
-        setCalculatedVelocity(velocity.toFixed(2));
+        setCalculatedVelocity(((trig - d2) / days).toFixed(2));
     } else {
         setCalculatedVelocity('0.00');
     }
@@ -50,8 +44,6 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
     navigation.navigate('ProfileSetupStep3', {
         ...step1Data,
         amhLevel,
-
-
         previousIVF,
         eggsRetrieved,
         priorSAB,
@@ -61,188 +53,173 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
     });
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-         <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: '66%' }]} />
-         </View>
-         <Text style={styles.stepIndicator}>Step 2 of 3</Text>
+  const InputGroup = ({ label, value, onChangeText, placeholder, unit, keyboardType = 'numeric', helperText }) => {
+    const [isFocused, setIsFocused] = useState(false);
+    return (
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+        <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
+          <TextInput 
+            style={styles.input} 
+            placeholder={placeholder}
+            placeholderTextColor="#94A3B8"
+            value={value}
+            onChangeText={onChangeText}
+            keyboardType={keyboardType}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+          />
+        </View>
+        {helperText && <Text style={styles.helperText}>{helperText}</Text>}
       </View>
+    );
+  };
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        <View style={styles.titleRow}>
-            <View style={styles.iconCircle}>
-                <Text style={{fontSize: 24}}>📄</Text> 
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0D9488', '#0F766E']}
+        style={styles.headerPanel}
+      >
+        <SafeAreaView>
+          <View style={styles.headerContent}>
+            <View style={styles.headerTop}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                    <Text style={styles.backBtnText}>←</Text>
+                </TouchableOpacity>
+                <View style={styles.progressBarWrapper}>
+                    <View style={[styles.progressBar, { width: '66.66%' }]} />
+                </View>
+                <Text style={styles.stepText}>Step 2 of 3</Text>
             </View>
-            <View>
-                <Text style={styles.title}>Medical Profile</Text>
-                <Text style={styles.subtitle}>Share your medical information for accurate prediction.</Text>
+            <Text style={styles.headerTitle}>Medical History</Text>
+            <Text style={styles.headerSubtitle}>Precision clinical data entry</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          
+          <View style={styles.introBox}>
+            <View style={styles.introIconBox}>
+                <Text style={styles.introIcon}>🏥</Text>
             </View>
-        </View>
-
-        <View style={styles.formContainer}>
-            {/* AMH Level */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Anti-Müllerian Hormone (AMH) Level (ng/mL)</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="Ex. 5.5" 
-                placeholderTextColor="#A0A0A0"
-                keyboardType="numeric"
-                value={amhLevel}
-                onChangeText={setAmhLevel}
-              />
-              <Text style={styles.helperText}>Your doctor can provide this value.</Text>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.introTitle}>Clinical Markers</Text>
+                <Text style={styles.introText}>Enter your medical profile data for high-accuracy outcome simulation.</Text>
             </View>
+          </View>
 
+          <View style={styles.sectionHeaderBox}>
+             <Text style={styles.sectionHeader}>Ovarian Reserve</Text>
+             <View style={styles.sectionLine} />
+          </View>
 
+          <View style={styles.glassCard}>
+            <InputGroup 
+              label="AMH Level" 
+              unit="ng/mL"
+              value={amhLevel} 
+              onChangeText={setAmhLevel} 
+              placeholder="Ex. 5.5" 
+              helperText="Anti-Müllerian Hormone level from your lab report."
+            />
+          </View>
 
+          <View style={styles.sectionHeaderBox}>
+             <Text style={styles.sectionHeader}>Embryo Data</Text>
+             <View style={styles.sectionLine} />
+          </View>
 
-        </View>
-
-        {/* --- Clinical Data Section --- */}
-        <Text style={styles.sectionHeader}>Clinical Data</Text>
-        <View style={styles.formContainer}>
+          <View style={styles.glassCard}>
             <View style={styles.row}>
-                 <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                    <Text style={styles.label}>Prior SAB</Text>
-                    <TextInput 
-                        style={styles.input} 
-                        placeholder="0" 
-                        placeholderTextColor="#A0A0A0"
-                        keyboardType="numeric"
-                        value={priorSAB}
-                        onChangeText={setPriorSAB}
-                    />
-                 </View>
-                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 12 }]}>
-                    <Text style={styles.label}>D3 Cell Count</Text>
-                    <TextInput 
-                        style={styles.input} 
-                        placeholder="8" 
-                        placeholderTextColor="#A0A0A0"
-                        keyboardType="numeric"
-                        value={freshD3CellCount}
-                        onChangeText={setFreshD3CellCount}
-                    />
-                 </View>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputGroup label="Prior SAB" value={priorSAB} onChangeText={setPriorSAB} placeholder="0" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputGroup label="D3 Cell Count" value={freshD3CellCount} onChangeText={setFreshD3CellCount} placeholder="8" />
+                </View>
             </View>
+            <InputGroup label="D3 Fragmentation" unit="%" value={freshD3Fragmentation} onChangeText={setFreshD3Fragmentation} placeholder="0 - 100" />
+          </View>
 
-            <View style={styles.inputGroup}>
-                <Text style={styles.label}>Fresh D3 Fragmentation (%)</Text>
-                <TextInput 
-                    style={styles.input} 
-                    placeholder="0 - 100" 
-                    placeholderTextColor="#A0A0A0"
-                    keyboardType="numeric"
-                    value={freshD3Fragmentation}
-                    onChangeText={setFreshD3Fragmentation}
-                />
-            </View>
-        </View>
+          <View style={styles.sectionHeaderBox}>
+             <Text style={styles.sectionHeader}>Hormone Velocity</Text>
+             <View style={styles.sectionLine} />
+          </View>
 
-        {/* --- Hormone Velocity Calculator --- */}
-        <Text style={styles.sectionHeader}>Hormone Velocity Calculator</Text>
-        <View style={styles.formContainer}>
-            <Text style={styles.helperText}>Enter E2 values to calculate velocity automatically.</Text>
-            
-            <View style={[styles.row, {marginTop: 12}]}>
-                 <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                    <Text style={styles.label}>Day 2 E2</Text>
-                    <TextInput 
-                        style={styles.input} 
-                        placeholder="Ex. 40" 
-                        placeholderTextColor="#A0A0A0"
-                        keyboardType="numeric"
-                        value={day2E2}
-                        onChangeText={setDay2E2}
-                    />
+          <View style={styles.glassCard}>
+             <View style={styles.row}>
+                 <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputGroup label="Day 2 E2" value={day2E2} onChangeText={setDay2E2} placeholder="40" />
                  </View>
-                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 12 }]}>
-                    <Text style={styles.label}>Trigger E2</Text>
-                    <TextInput 
-                        style={styles.input} 
-                        placeholder="Ex. 2000" 
-                        placeholderTextColor="#A0A0A0"
-                        keyboardType="numeric"
-                        value={triggerDayE2}
-                        onChangeText={setTriggerDayE2}
-                    />
+                 <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputGroup label="Trigger E2" value={triggerDayE2} onChangeText={setTriggerDayE2} placeholder="2000" />
                  </View>
-            </View>
-
-            <View style={styles.row}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                    <Text style={styles.label}>Stim. Days</Text>
-                    <TextInput 
-                        style={styles.input} 
-                        placeholder="10" 
-                        placeholderTextColor="#A0A0A0"
-                        keyboardType="numeric"
-                        value={stimulationDays}
-                        onChangeText={setStimulationDays}
-                    />
-                 </View>
-                 <View style={[styles.inputGroup, { flex: 1, marginLeft: 12 }]}>
-                    <Text style={styles.label}>Velocity</Text>
-                    <View style={[styles.input, { backgroundColor: '#E8F5E9', borderColor: '#C8E6C9', justifyContent: 'center' }]}>
-                        <Text style={{color: '#2E7D32', fontWeight: 'bold'}}>{calculatedVelocity}</Text>
+             </View>
+             <View style={styles.row}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputGroup label="Stim. Days" value={stimulationDays} onChangeText={setStimulationDays} placeholder="10" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.label}>Calculated Velocity</Text>
+                    <View style={styles.velocityBox}>
+                        <Text style={styles.velocityValue}>{calculatedVelocity}</Text>
                     </View>
-                 </View>
-            </View>
-        </View>
+                </View>
+             </View>
+          </View>
 
-        {/* Previous IVF Toggle */}
-        <View style={[styles.formContainer, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-            <Text style={[styles.label, { marginBottom: 0 }]}>Previous IVF cycles?</Text>
+          <View style={styles.sectionHeaderBox}>
+             <Text style={styles.sectionHeader}>Past Experience</Text>
+             <View style={styles.sectionLine} />
+          </View>
+
+          <View style={[styles.glassCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+            <View>
+                <Text style={[styles.label, { marginBottom: 2 }]}>Previous IVF Cycles</Text>
+                <Text style={styles.helperText}>Have you undergone IVF before?</Text>
+            </View>
             <Switch
-                trackColor={{ false: "#E0E0E0", true: theme.colors.primary }} 
+                trackColor={{ false: "#E2E8F0", true: theme.colors.primary }} 
                 thumbColor={"#FFFFFF"}
-                ios_backgroundColor="#3e3e3e"
                 onValueChange={setPreviousIVF}
                 value={previousIVF}
             />
-        </View>
+          </View>
 
-        {previousIVF && (
-            <View style={[styles.formContainer, { marginTop: -16 }]}>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Eggs retrieved in last cycle</Text>
-                    <TextInput 
-                        style={styles.input} 
-                        placeholder="Ex. 5" 
-                        placeholderTextColor="#A0A0A0"
-                        keyboardType="numeric"
-                        value={eggsRetrieved}
-                        onChangeText={setEggsRetrieved}
-                    />
-                </View>
+          {previousIVF && (
+            <View style={[styles.glassCard, { marginTop: -16 }]}>
+                <InputGroup 
+                    label="Eggs Retrieved" 
+                    value={eggsRetrieved} 
+                    onChangeText={setEggsRetrieved} 
+                    placeholder="Ex. 5" 
+                    helperText="Total eggs retrieved in your most recent cycle."
+                />
             </View>
-        )}
+          )}
 
-        <View style={styles.buttonRow}>
-            <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-                activeOpacity={0.8}
+          <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.9}>
+            <LinearGradient
+              colors={['#0D9488', '#14B8A6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
             >
-                <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
+              <Text style={styles.nextButtonText}>Continue to Review</Text>
+              <Text style={styles.buttonArrow}>→</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-            <TouchableOpacity 
-                style={styles.nextButton}
-                onPress={handleNext}
-                activeOpacity={0.8}
-            >
-                <Text style={styles.nextButtonText}>Next</Text>
-            </TouchableOpacity>
-        </View>
-        
-        <View style={{height: 40}} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: 60 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -251,132 +228,210 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    paddingHorizontal: theme.spacing.l,
-    paddingTop: theme.spacing.l,
-    paddingBottom: theme.spacing.m,
-    backgroundColor: theme.colors.background,
+  headerPanel: {
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    ...theme.shadows.premium,
   },
-  progressBarContainer: {
-      height: 6,
-      backgroundColor: theme.colors.progressBarBackground,
-      borderRadius: 3,
-      marginBottom: 8,
-      overflow: 'hidden',
+  headerContent: {
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  backBtnText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '300',
+  },
+  progressBarWrapper: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 3,
+    marginRight: 16,
+    overflow: 'hidden',
   },
   progressBar: {
-      height: '100%',
-      backgroundColor: theme.colors.primary,
-      borderRadius: 3,
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
   },
-  stepIndicator: {
-      ...theme.typography.label,
-      color: theme.colors.textLight,
-      fontSize: 12,
-      textAlign: 'right',
-      marginBottom: 0,
+  stepText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    opacity: 0.9,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    marginTop: 2,
   },
   scrollContent: {
-    paddingHorizontal: theme.spacing.l,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
-  titleRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      marginBottom: theme.spacing.l,
+  introBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    ...theme.shadows.soft,
   },
-  iconCircle: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(64, 145, 139, 0.1)', // Light teal
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: theme.spacing.m,
+  introIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: 4,
+  introIcon: {
+    fontSize: 22,
   },
-  subtitle: {
-    ...theme.typography.subheading,
-    fontSize: 14,
+  introTitle: {
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+  introText: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_400Regular',
     color: theme.colors.textLight,
-    maxWidth: '85%',
+    lineHeight: 18,
   },
-  formContainer: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.l,
-      padding: theme.spacing.l,
-      ...theme.shadows.soft,
-      marginBottom: theme.spacing.l,
+  sectionHeaderBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionHeader: {
-      ...theme.typography.label,
-      fontSize: 14,
-      color: theme.colors.textLight,
-      marginBottom: 8,
-      marginLeft: 4,
-      marginTop: 8,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    color: theme.colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginRight: 12,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  glassCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+    ...theme.shadows.soft,
   },
   inputGroup: {
     marginBottom: 16,
   },
   label: {
-    ...theme.typography.label,
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#475569',
+    marginBottom: 8,
+  },
+  unitText: {
+    fontWeight: '400',
+    fontSize: 10,
+    color: '#94A3B8',
+  },
+  inputWrapper: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+  },
+  inputWrapperFocused: {
+    borderColor: theme.colors.primary,
+    backgroundColor: '#FFFFFF',
   },
   input: {
-    backgroundColor: theme.colors.inputBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.borderRadius.m,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     fontSize: 16,
     color: theme.colors.text,
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
   helperText: {
-      fontSize: 12,
-      color: theme.colors.textLight,
-      marginTop: 6,
-      fontStyle: 'italic',
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontFamily: 'PlusJakartaSans_400Regular_Italic',
+    fontStyle: 'italic',
   },
   row: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+    flexDirection: 'row',
   },
-  buttonRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: theme.spacing.m,
-      marginBottom: theme.spacing.xl,
+  velocityBox: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#CCFBF1',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backButton: {
-      flex: 1,
-      marginRight: theme.spacing.s,
-      paddingVertical: 16,
-      borderRadius: theme.borderRadius.xl,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.inputBorder,
-      backgroundColor: theme.colors.surface,
-  },
-  backButtonText: {
-      ...theme.typography.button,
-      color: theme.colors.text,
+  velocityValue: {
+    color: '#0D9488',
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontSize: 16,
   },
   nextButton: {
-      flex: 1,
-      marginLeft: theme.spacing.s,
-      backgroundColor: theme.colors.primary,
-      paddingVertical: 16,
-      borderRadius: theme.borderRadius.xl,
-      alignItems: 'center',
-      ...theme.shadows.medium,
+    marginTop: 10,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...theme.shadows.medium,
+  },
+  gradientButton: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButtonText: {
-    ...theme.typography.button,
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    marginRight: 8,
   },
+  buttonArrow: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '300',
+  }
 });

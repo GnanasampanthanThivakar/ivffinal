@@ -6,21 +6,28 @@ import {
   ScrollView, 
   TouchableOpacity, 
   SafeAreaView,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
+  Dimensions
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
-// Simple check icon component or placeholder
+const { width } = Dimensions.get('window');
+
 const CheckBox = ({ checked, onPress }) => (
-    <TouchableOpacity onPress={onPress} style={[styles.checkbox, checked && styles.checkboxChecked]}>
-        {checked && <Text style={{color: '#FFF', fontSize: 10}}>✓</Text>}
+    <TouchableOpacity 
+        onPress={onPress} 
+        style={[styles.checkbox, checked && styles.checkboxChecked]}
+        activeOpacity={0.7}
+    >
+        {checked && <Text style={{color: '#FFF', fontSize: 12, fontWeight: '800'}}>✓</Text>}
     </TouchableOpacity>
 );
 
 export default function ProfileSetupStep3Screen({ navigation, route }) {
   const params = route.params || {};
 
-  // Calculate BMI
   const heightM = (parseFloat(params.height) || 0) / 100;
   const weightKg = parseFloat(params.weight) || 0;
   const bmi = heightM > 0 ? (weightKg / (heightM * heightM)).toFixed(1) : 'N/A';
@@ -29,14 +36,10 @@ export default function ProfileSetupStep3Screen({ navigation, route }) {
   const [calculating, setCalculating] = useState(false);
 
   const handleCalculate = () => {
-      if (!consent) {
-          alert("Please confirm the information is accurate.");
-          return;
-      }
+      if (!consent) return;
       setCalculating(true);
-      // Navigate immediately to Loading Screen, passing the params
       navigation.navigate('Loading', { ...params, bmi });
-      setCalculating(false); // Reset state just in case we come back
+      setTimeout(() => setCalculating(false), 500);
   };
 
   const InfoRow = ({ label, value }) => (
@@ -47,43 +50,61 @@ export default function ProfileSetupStep3Screen({ navigation, route }) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-         <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: '100%' }]} />
-         </View>
-         <Text style={styles.stepIndicator}>Step 3 of 3</Text>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0D9488', '#0F766E']}
+        style={styles.headerPanel}
+      >
+        <SafeAreaView>
+          <View style={styles.headerContent}>
+            <View style={styles.headerTop}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                    <Text style={styles.backBtnText}>←</Text>
+                </TouchableOpacity>
+                <View style={styles.progressBarWrapper}>
+                    <View style={[styles.progressBar, { width: '100%' }]} />
+                </View>
+                <Text style={styles.stepText}>Step 3 of 3</Text>
+            </View>
+            <Text style={styles.headerTitle}>Review & Confirm</Text>
+            <Text style={styles.headerSubtitle}>Verify your data before analysis</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Confirm Your Details</Text>
-        <Text style={styles.subtitle}>Review your information before we calculate your personalized prediction.</Text>
+        <View style={styles.introBox}>
+            <View style={styles.introIconBox}>
+                <Text style={styles.introIcon}>🏁</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.introTitle}>Final Check</Text>
+                <Text style={styles.introText}>Review the details below. Our AI will use this data to generate its findings.</Text>
+            </View>
+        </View>
 
-        {/* Personal Information Card */}
-        <View style={styles.card}>
+        <View style={styles.glassCard}>
             <View style={styles.cardHeader}>
-                <View style={[styles.cardIconCircle, {backgroundColor: '#E0F2F1'}]}>
-                    <Text>👤</Text>
+                <View style={[styles.cardIconCircle, {backgroundColor: '#F0FDFA'}]}>
+                    <Text style={{fontSize: 18}}>👤</Text>
                 </View>
-                <Text style={styles.cardTitle}>Personal Information</Text>
+                <Text style={styles.cardTitle}>Personal Profile</Text>
             </View>
             <View style={styles.divider} />
             <InfoRow label="Name" value={params.name || '-'} />
             <InfoRow label="Age" value={params.age ? `${params.age} years` : '-'} />
-            <InfoRow label="BMI" value={bmi} />
+            <InfoRow label="BMI Index" value={bmi} />
         </View>
 
-        {/* Medical Profile Card */}
-        <View style={styles.card}>
+        <View style={styles.glassCard}>
             <View style={styles.cardHeader}>
-                 <View style={[styles.cardIconCircle, {backgroundColor: '#F3E5F5'}]}>
-                    <Text>🏥</Text>
+                 <View style={[styles.cardIconCircle, {backgroundColor: '#F5F3FF'}]}>
+                    <Text style={{fontSize: 18}}>🏥</Text>
                 </View>
-                <Text style={styles.cardTitle}>Medical Profile</Text>
+                <Text style={styles.cardTitle}>Clinical Data</Text>
             </View>
              <View style={styles.divider} />
             <InfoRow label="AMH Level" value={params.amhLevel ? `${params.amhLevel} ng/mL` : '-'} />
-
             <InfoRow label="Prior SAB" value={params.priorSAB || '0'} />
             <InfoRow label="D3 Cell Count" value={params.freshD3CellCount || '-'} />
             <InfoRow label="D3 Fragmentation" value={params.freshD3Fragmentation ? `${params.freshD3Fragmentation}%` : '-'} />
@@ -91,15 +112,16 @@ export default function ProfileSetupStep3Screen({ navigation, route }) {
             <InfoRow label="Previous IVF" value={params.previousIVF ? 'Yes' : 'No'} />
         </View>
 
-        {/* Privacy Box */}
         <View style={styles.privacyBox}>
-            <Text style={{fontSize: 24, marginRight: 16}}>🛡️</Text>
-            <Text style={styles.privacyText}>
-                Your data is secure and encrypted. It will only be used to generate your personalized prediction.
-            </Text>
+            <Text style={styles.privacyIcon}>🛡️</Text>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.privacyTitle}>Security Protocol</Text>
+                <Text style={styles.privacyText}>
+                    Your data is high-level encrypted and used strictly for personal health simulation.
+                </Text>
+            </View>
         </View>
 
-        {/* Consent Checkbox */}
         <TouchableOpacity 
             style={styles.consentRow} 
             onPress={() => setConsent(!consent)}
@@ -107,35 +129,36 @@ export default function ProfileSetupStep3Screen({ navigation, route }) {
         >
             <CheckBox checked={consent} onPress={() => setConsent(!consent)} />
             <Text style={styles.consentText}>
-                I confirm the information is accurate and consent to its use for prediction and personalized recommendations.
+                I certify that the information provided is accurate to the best of my knowledge.
             </Text>
         </TouchableOpacity>
 
-        <View style={styles.buttonRow}>
-            <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-                activeOpacity={0.8}
+        <TouchableOpacity 
+            style={[styles.nextButton, !consent && styles.buttonDisabled]} 
+            onPress={handleCalculate}
+            disabled={!consent}
+            activeOpacity={0.9}
+        >
+            <LinearGradient
+              colors={consent ? ['#0D9488', '#14B8A6'] : ['#94A3B8', '#64748B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
             >
-                <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-                style={[styles.nextButton, { backgroundColor: consent ? theme.colors.primary : '#B2B2B2' }]} // Grey if disabled
-                onPress={handleCalculate}
-                disabled={!consent}
-                activeOpacity={0.8}
-            >
-                 {calculating ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                {calculating ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                    <Text style={styles.nextButtonText}>Calculate</Text>
+                    <>
+                        <Text style={styles.nextButtonText}>Generate Analysis</Text>
+                        <Text style={styles.buttonArrow}>→</Text>
+                    </>
                 )}
-            </TouchableOpacity>
-        </View>
-        <View style={{height: 40}} /> 
+            </LinearGradient>
+        </TouchableOpacity>
+
+        <View style={{height: 60}} /> 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -144,120 +167,193 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    paddingHorizontal: theme.spacing.l,
-    paddingTop: theme.spacing.l,
-    paddingBottom: theme.spacing.m,
-    backgroundColor: theme.colors.background,
+  headerPanel: {
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    ...theme.shadows.premium,
   },
-  progressBarContainer: {
-      height: 6,
-      backgroundColor: theme.colors.progressBarBackground,
-      borderRadius: 3,
-      marginBottom: 8,
-      overflow: 'hidden',
+  headerContent: {
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  backBtnText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '300',
+  },
+  progressBarWrapper: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 3,
+    marginRight: 16,
+    overflow: 'hidden',
   },
   progressBar: {
-      height: '100%',
-      backgroundColor: theme.colors.primary,
-      borderRadius: 3,
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
   },
-  stepIndicator: {
-      ...theme.typography.label,
-      color: theme.colors.textLight,
-      fontSize: 12,
-      textAlign: 'right',
-      marginBottom: 0,
+  stepText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    opacity: 0.9,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    marginTop: 2,
   },
   scrollContent: {
-    paddingHorizontal: theme.spacing.l,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: 4,
+  introBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    ...theme.shadows.soft,
   },
-  subtitle: {
-    ...theme.typography.subheading,
-    fontSize: 14,
+  introIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  introIcon: {
+    fontSize: 22,
+  },
+  introTitle: {
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: theme.colors.text,
+    marginBottom: 2,
+  },
+  introText: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_400Regular',
     color: theme.colors.textLight,
-    marginBottom: theme.spacing.l,
+    lineHeight: 18,
   },
-  card: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.l,
-      padding: theme.spacing.l,
-      marginBottom: theme.spacing.l,
-      ...theme.shadows.soft,
+  glassCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+    ...theme.shadows.soft,
   },
   cardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   cardIconCircle: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 12,
+      marginRight: 16,
   },
   cardTitle: {
-      ...theme.typography.label,
       fontSize: 16,
-      marginBottom: 0,
+      fontFamily: 'PlusJakartaSans_700Bold',
+      color: '#1E293B',
   },
   divider: {
       height: 1,
-      backgroundColor: theme.colors.inputBorder,
+      backgroundColor: '#F1F5F9',
       marginBottom: 16,
   },
   infoRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginBottom: 10,
+      marginBottom: 12,
   },
   infoLabel: {
-      color: theme.colors.textLight,
-      fontSize: 14,
-      fontWeight: '500',
+      color: '#64748B',
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans_600SemiBold',
   },
   infoValue: {
-      color: theme.colors.text,
+      color: '#0F172A',
       fontSize: 14,
-      fontWeight: '600',
+      fontFamily: 'PlusJakartaSans_700Bold',
       textAlign: 'right',
   },
   privacyBox: {
-      backgroundColor: '#E3F2FD', // Light Blue
-      padding: theme.spacing.l,
-      borderRadius: theme.borderRadius.l,
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: theme.spacing.l,
-      borderWidth: 1,
-      borderColor: '#BBDEFB',
+    backgroundColor: '#F8FAFC',
+    padding: 18,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+  },
+  privacyIcon: {
+    fontSize: 24,
+    marginRight: 16,
+  },
+  privacyTitle: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#1E293B',
+    marginBottom: 2,
   },
   privacyText: {
-      flex: 1,
-      fontSize: 13,
-      color: '#0D47A1',
-      lineHeight: 18,
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#64748B',
+    lineHeight: 18,
   },
   consentRow: {
       flexDirection: 'row',
-      marginBottom: 32,
+      marginBottom: 36,
       paddingHorizontal: 4,
-      alignItems: 'flex-start',
+      alignItems: 'center',
   },
   checkbox: {
-      width: 22,
-      height: 22,
-      borderRadius: 6,
+      width: 26,
+      height: 26,
+      borderRadius: 8,
       borderWidth: 2,
-      borderColor: theme.colors.textLight,
-      marginRight: 12,
-      marginTop: 2,
+      borderColor: '#E2E8F0',
+      marginRight: 14,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: '#FFFFFF',
@@ -269,36 +365,34 @@ const styles = StyleSheet.create({
   consentText: {
       flex: 1,
       fontSize: 14,
-      color: theme.colors.text,
+      color: '#334155',
+      fontFamily: 'PlusJakartaSans_500Medium',
       lineHeight: 20,
   },
-  buttonRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginBottom: 40,
-  },
-  backButton: {
-      width: 80,
-      marginRight: 12,
-      paddingVertical: 16,
-      borderRadius: theme.borderRadius.xl,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: theme.colors.inputBorder,
-      backgroundColor: theme.colors.surface,
-  },
-  backButtonText: {
-      ...theme.typography.button,
-      color: theme.colors.text,
-  },
   nextButton: {
-      flex: 1,
-      paddingVertical: 16,
-      borderRadius: theme.borderRadius.xl,
-      alignItems: 'center',
-      ...theme.shadows.medium,
+    borderRadius: 20,
+    overflow: 'hidden',
+    ...theme.shadows.medium,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  gradientButton: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   nextButtonText: {
-    ...theme.typography.button,
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    marginRight: 8,
   },
+  buttonArrow: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '300',
+  }
 });

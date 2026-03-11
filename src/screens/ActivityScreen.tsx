@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   backText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: 'PlusJakartaSans_700Bold',
     marginBottom: 18,
   },
   heroTitleRow: {
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: "#FFFFFF",
     fontSize: 30,
-    fontWeight: "900",
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
   },
   personalChip: {
     backgroundColor: "#FFFFFF",
@@ -327,13 +327,13 @@ const styles = StyleSheet.create({
   },
   personalChipText: {
     color: "#4FB1AF",
-    fontWeight: "800",
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 13,
   },
   heroSub: {
     color: "#EAF9F8",
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: 'PlusJakartaSans_500Medium',
     marginTop: 10,
     lineHeight: 20,
   },
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   },
   personalizedTitle: {
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: 'PlusJakartaSans_700Bold',
     color: "#1F2A37",
     marginBottom: 6,
   },
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     color: "#475569",
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: "600",
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
 
   filterRow: {
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   },
   filterText: {
     color: "#526277",
-    fontWeight: "800",
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
   filterTextActive: {
     color: "#FFFFFF",
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "800",
+    fontFamily: 'PlusJakartaSans_700Bold',
     color: "#1F2A37",
     marginBottom: 12,
   },
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#1F2A37",
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
   durationPill: {
     backgroundColor: "#F8FAFC",
@@ -458,19 +458,19 @@ const styles = StyleSheet.create({
   durationText: {
     color: "#5B6677",
     fontSize: 12,
-    fontWeight: "800",
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
   activityDesc: {
     marginTop: 8,
     color: "#475569",
     fontSize: 14,
     lineHeight: 21,
-    fontWeight: "500",
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
   activityCategory: {
     marginTop: 8,
     color: "#7C8A9C",
-    fontWeight: "700",
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 13,
   },
   startBtn: {
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   startBtnText: {
     color: "#FFFFFF",
-    fontWeight: "900",
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 14,
   },
 

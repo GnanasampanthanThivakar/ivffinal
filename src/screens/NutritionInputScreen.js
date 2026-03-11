@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,12 +10,18 @@ import {
     ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Animated,
+    Dimensions
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+
+const { width } = Dimensions.get('window');
 
 export default function NutritionInputScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
+    const scrollRef = useRef(null);
 
     // 24 Feature State Management
     const [formData, setFormData] = useState({
@@ -36,15 +42,13 @@ export default function NutritionInputScreen({ navigation }) {
     const handleCalculate = async () => {
         setLoading(true);
         try {
-            // Convert all values to floats for the API
             const payload = {};
             Object.keys(formData).forEach(key => {
                 payload[key] = parseFloat(formData[key]) || 0;
             });
 
-            console.log("Sending Payload:", payload);
+            console.log("Sending Premium Payload:", payload);
 
-            // Connect to our local FastAPI backend
             const response = await fetch('http://127.0.0.1:8000/api/predict/nutrition_full', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -54,7 +58,6 @@ export default function NutritionInputScreen({ navigation }) {
             const result = await response.json();
 
             if (result.success) {
-                // Navigate to Dedicated Nutrition Result Screen
                 navigation.navigate('NutritionResult', {
                     name: 'Patient',
                     predictionSuccess: result.baseline_probability,
@@ -66,161 +69,211 @@ export default function NutritionInputScreen({ navigation }) {
             }
         } catch (error) {
             console.error(error);
-            Alert.alert("Connection Error", "Could not connect to the AI Backend. Ensure the FastAPI server is running.");
+            Alert.alert("Connection Error", "Could not connect to the AI Backend.");
         } finally {
             setLoading(false);
         }
     };
 
-    const InputGroup = ({ label, name, placeholder, unit, keyboardType = 'numeric' }) => (
-        <View style={styles.inputGroup}>
-            <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
-            <TextInput
-                style={styles.input}
-                placeholder={placeholder}
-                placeholderTextColor="#A0A0A0"
-                keyboardType={keyboardType}
-                value={formData[name]}
-                onChangeText={(val) => updateField(name, val)}
-            />
-        </View>
-    );
+    const InputGroup = ({ label, name, placeholder, unit, keyboardType = 'numeric', icon }) => {
+        const [isFocused, setIsFocused] = useState(false);
+        
+        return (
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+                <View style={[
+                    styles.inputWrapper, 
+                    isFocused && styles.inputWrapperFocused
+                ]}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder={placeholder}
+                        placeholderTextColor="#94A3B8"
+                        keyboardType={keyboardType}
+                        value={formData[name]}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        onChangeText={(val) => updateField(name, val)}
+                    />
+                </View>
+            </View>
+        );
+    };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
+            <LinearGradient
+                colors={['#0D9488', '#0F766E']}
+                style={styles.headerBackground}
+            >
+                <SafeAreaView>
+                    <View style={styles.headerContent}>
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => navigation.goBack()}
+                        >
+                            <Text style={styles.backButtonText}>✕</Text>
+                        </TouchableOpacity>
+                        <View>
+                            <Text style={styles.headerTitle}>Nutrition AI</Text>
+                            <Text style={styles.headerSubtitle}>Precision Simulation Engine</Text>
+                        </View>
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}
             >
-                <View style={styles.headerPanel}>
-                    <TouchableOpacity
-                        style={styles.backButtonTop}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Text style={styles.backButtonTopText}>← Back</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Advanced Nutrition AI</Text>
-                    <Text style={styles.headerSubtitle}>Complete your 24-marker research profile</Text>
-                </View>
+                <ScrollView 
+                    ref={scrollRef}
+                    contentContainerStyle={styles.scrollContent} 
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* PROGRESS INFO */}
+                    <View style={styles.infoCard}>
+                        <View style={styles.infoIconBox}>
+                            <Text style={styles.infoIcon}>🧬</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.infoTitle}>Deep Biomarker Analysis</Text>
+                            <Text style={styles.infoText}>We use 24 unique data points to simulate your personalized nutrition impact.</Text>
+                        </View>
+                    </View>
 
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                    {/* SECTION 1: CLINICAL VITALS */}
-                    <Text style={styles.sectionHeader}>📋 Clinical Vitals & History</Text>
-                    <View style={styles.formContainer}>
+                    {/* SECTION 1: CLINICAL */}
+                    <View style={styles.sectionHeaderBox}>
+                        <Text style={styles.sectionHeader}>Clinical Vitals</Text>
+                        <View style={styles.sectionLine} />
+                    </View>
+                    
+                    <View style={styles.glassCard}>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
+                            <View style={{ flex: 1.2, marginRight: 10 }}>
                                 <InputGroup label="Age" name="age" placeholder="34" />
                             </View>
-                            <View style={{ flex: 1, marginLeft: 8 }}>
+                            <View style={{ flex: 1, marginLeft: 10 }}>
                                 <InputGroup label="Sleep" name="sleep" unit="hrs" placeholder="7.5" />
                             </View>
                         </View>
 
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
+                            <View style={{ flex: 1, marginRight: 10 }}>
                                 <Text style={styles.label}>Gender</Text>
-                                <TouchableOpacity
-                                    style={[styles.miniToggle, formData.gender === '2' && styles.miniToggleActive]}
-                                    onPress={() => updateField('gender', '2')}
-                                >
-                                    <Text style={[styles.miniToggleText, formData.gender === '2' && styles.miniToggleTextActive]}>Female</Text>
-                                </TouchableOpacity>
+                                <View style={styles.toggleRow}>
+                                    <TouchableOpacity
+                                        style={[styles.toggleBtn, formData.gender === '2' && styles.toggleBtnActive]}
+                                        onPress={() => updateField('gender', '2')}
+                                    >
+                                        <Text style={[styles.toggleText, formData.gender === '2' && styles.toggleTextActive]}>F</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.toggleBtn, formData.gender === '1' && styles.toggleBtnActive]}
+                                        onPress={() => updateField('gender', '1')}
+                                    >
+                                        <Text style={[styles.toggleText, formData.gender === '1' && styles.toggleTextActive]}>M</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <View style={{ flex: 1, marginLeft: 8 }}>
+                            <View style={{ flex: 1, marginLeft: 10 }}>
                                 <Text style={styles.label}>Smoking</Text>
                                 <TouchableOpacity
                                     style={[styles.miniToggle, formData.smoke === '2' && styles.miniToggleActive]}
-                                    onPress={() => updateField('smoke', '2')}
+                                    onPress={() => updateField('smoke', formData.smoke === '2' ? '1' : '2')}
                                 >
-                                    <Text style={[styles.miniToggleText, formData.smoke === '2' && styles.miniToggleTextActive]}>Non-Smoker</Text>
+                                    <Text style={[styles.miniToggleText, formData.smoke === '2' && styles.miniToggleTextActive]}>
+                                        {formData.smoke === '2' ? 'Non-Smoker' : 'Smoker'}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
 
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
-                                <InputGroup label="Systolic BP" name="sbp" placeholder="118" />
+                            <View style={{ flex: 1, marginRight: 10 }}>
+                                <InputGroup label="Systolic" name="sbp" placeholder="118" />
                             </View>
-                            <View style={{ flex: 1, marginLeft: 8 }}>
-                                <InputGroup label="Diastolic BP" name="dbp" placeholder="76" />
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <InputGroup label="Diastolic" name="dbp" placeholder="76" />
                             </View>
                         </View>
 
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
+                            <View style={{ flex: 1, marginRight: 10 }}>
                                 <InputGroup label="Cholesterol" name="chol" placeholder="185" />
                             </View>
-                            <View style={{ flex: 1, marginLeft: 8 }}>
-                                <Text style={styles.label}>BMI Cat (1-4)</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    keyboardType="numeric"
-                                    value={formData.bmi_cat}
-                                    onChangeText={(val) => updateField('bmi_cat', val)}
-                                />
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <InputGroup label="BMI Cat" name="bmi_cat" placeholder="2" />
                             </View>
                         </View>
                     </View>
 
-                    {/* SECTION 2: DAY 1 NUTRITION */}
-                    <Text style={styles.sectionHeader}>🥦 Day 1 Dietary Intake</Text>
-                    <View style={styles.formContainer}>
+                    {/* SECTION 2: DIETARY INTAKE */}
+                    <View style={styles.sectionHeaderBox}>
+                        <Text style={styles.sectionHeader}>Dietary Markers</Text>
+                        <View style={styles.sectionLine} />
+                    </View>
+
+                    {/* DAY 1 */}
+                    <Text style={styles.dayLabel}>Protocol Day 01</Text>
+                    <View style={styles.glassCard}>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Calories" name="calories" unit="kcal" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Protein" name="protein" unit="g" /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Calories" name="calories" unit="kcal" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Protein" name="protein" unit="g" /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Carbs" name="carbs" unit="g" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Total Fat" name="fat" unit="g" /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Carbs" name="carbs" unit="g" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Fat" name="fat" unit="g" /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Folate D1" name="folate_d1" unit="mcg" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Zinc D1" name="zinc_d1" unit="mg" /></View>
-                        </View>
-                        <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Vitamin D" name="vit_d" unit="mcg" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Vitamin B12" name="vit_b12" unit="mcg" /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D1" name="folate_d1" unit="mcg" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Zinc D1" name="zinc_d1" unit="mg" /></View>
                         </View>
                     </View>
 
-                    {/* SECTION 3: DAY 2 NUTRITION */}
-                    <Text style={styles.sectionHeader}>🍎 Day 2 Dietary Intake</Text>
-                    <View style={styles.formContainer}>
+                    {/* DAY 2 */}
+                    <Text style={styles.dayLabel}>Protocol Day 02</Text>
+                    <View style={styles.glassCard}>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Calories" name="calories_d2" unit="kcal" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Protein" name="protein_d2" unit="g" /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Calories" name="calories_d2" unit="kcal" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Protein" name="protein_d2" unit="g" /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Carbs" name="carbs_d2" unit="g" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Total Fat" name="fat_d2" unit="g" /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D2" name="folate_d2" unit="mcg" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Zinc D2" name="zinc_d2" unit="mg" /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Folate D2" name="folate_d2" unit="mcg" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Zinc D2" name="zinc_d2" unit="mg" /></View>
-                        </View>
-                        <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 8 }}><InputGroup label="Vitamin D" name="vit_d_d2" unit="mcg" /></View>
-                            <View style={{ flex: 1, marginLeft: 8 }}><InputGroup label="Vitamin B12" name="vit_b12_d2" unit="mcg" /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Vit D" name="vit_d_d2" unit="mcg" /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Vit B12" name="vit_b12_d2" unit="mcg" /></View>
                         </View>
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.calculateButton, loading && { opacity: 0.7 }]}
+                        style={[styles.calculateButton, loading && { opacity: 0.8 }]}
                         onPress={handleCalculate}
                         disabled={loading}
                     >
-                        {loading ? (
-                            <ActivityIndicator color="#FFF" />
-                        ) : (
-                            <Text style={styles.calculateButtonText}>Run Research Simulation 🚀</Text>
-                        )}
+                        <LinearGradient
+                            colors={['#0D9488', '#14B8A6']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.gradientButton}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#FFF" />
+                            ) : (
+                                <>
+                                    <Text style={styles.calculateButtonText}>Run Prediction Engine</Text>
+                                    <Text style={styles.calculateButtonArrow}>→</Text>
+                                </>
+                            )}
+                        </LinearGradient>
                     </TouchableOpacity>
 
-                    <View style={{ height: 60 }} />
+                    <View style={{ height: 100 }} />
                 </ScrollView>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -229,112 +282,222 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: theme.colors.background,
     },
-    headerPanel: {
-        backgroundColor: theme.colors.primary,
-        paddingTop: theme.spacing.xl,
-        paddingBottom: 25,
+    headerBackground: {
+        paddingBottom: 30,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
+        ...theme.shadows.premium,
+    },
+    headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: theme.spacing.l,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        ...theme.shadows.medium,
+        paddingTop: Platform.OS === 'ios' ? 10 : 20,
     },
-    backButtonTop: {
-        marginBottom: 12,
+    backButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
     },
-    backButtonTopText: {
+    backButtonText: {
         color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 18,
+        fontWeight: '200',
     },
     headerTitle: {
-        ...theme.typography.heading,
         color: '#FFFFFF',
         fontSize: 22,
-        marginBottom: 4,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        letterSpacing: 0.5,
     },
     headerSubtitle: {
-        ...theme.typography.subheading,
-        color: 'rgba(255,255,255,0.8)',
-        fontSize: 13,
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     scrollContent: {
         paddingHorizontal: theme.spacing.m,
-        paddingTop: theme.spacing.m,
+        paddingTop: theme.spacing.xl,
+    },
+    infoCard: {
+        flexDirection: 'row',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 18,
+        marginBottom: 30,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        alignItems: 'center',
+        ...theme.shadows.soft,
+    },
+    infoIconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: '#F0FDFA',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    infoIcon: {
+        fontSize: 24,
+    },
+    infoTitle: {
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: theme.colors.text,
+        marginBottom: 2,
+    },
+    infoText: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_400Regular',
+        color: theme.colors.textLight,
+        lineHeight: 18,
+    },
+    sectionHeaderBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+        marginTop: 10,
     },
     sectionHeader: {
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
         color: theme.colors.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
+        marginRight: 12,
+    },
+    sectionLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#E2E8F0',
+    },
+    glassCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 30,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.8)',
+        ...theme.shadows.soft,
+    },
+    dayLabel: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#64748B',
         marginBottom: 10,
         marginLeft: 4,
-        marginTop: 10,
-        textTransform: 'uppercase',
-    },
-    formContainer: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.borderRadius.l,
-        padding: 16,
-        ...theme.shadows.soft,
-        marginBottom: 20,
     },
     row: {
         flexDirection: 'row',
-        marginBottom: 12,
+        marginBottom: 20,
     },
     inputGroup: {
         flex: 1,
     },
     label: {
         fontSize: 12,
-        fontWeight: '600',
-        color: theme.colors.textLight,
-        marginBottom: 6,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#475569',
+        marginBottom: 8,
     },
     unitText: {
         fontWeight: '400',
         fontSize: 10,
+        color: '#94A3B8',
+    },
+    inputWrapper: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: '#F1F5F9',
+        overflow: 'hidden',
+    },
+    inputWrapperFocused: {
+        borderColor: theme.colors.primary,
+        backgroundColor: '#FFFFFF',
     },
     input: {
-        backgroundColor: '#F5F7FA',
-        borderWidth: 1,
-        borderColor: '#E1E8ED',
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        fontSize: 15,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
         color: theme.colors.text,
+        fontFamily: 'PlusJakartaSans_500Medium',
+    },
+    toggleRow: {
+        flexDirection: 'row',
+        backgroundColor: '#F1F5F9',
+        borderRadius: 12,
+        padding: 4,
+    },
+    toggleBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 8,
+    },
+    toggleBtnActive: {
+        backgroundColor: '#FFFFFF',
+        ...theme.shadows.soft,
+    },
+    toggleText: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#94A3B8',
+    },
+    toggleTextActive: {
+        color: theme.colors.primary,
     },
     miniToggle: {
-        backgroundColor: '#F5F7FA',
-        borderWidth: 1,
-        borderColor: '#E1E8ED',
-        borderRadius: 10,
-        paddingVertical: 10,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 12,
+        paddingVertical: 12,
         alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#F1F5F9',
     },
     miniToggleActive: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
+        backgroundColor: '#ECFDF5',
+        borderColor: '#10B981',
     },
     miniToggleText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: theme.colors.textLight,
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#64748B',
     },
     miniToggleTextActive: {
-        color: '#FFF',
+        color: '#059669',
     },
     calculateButton: {
-        backgroundColor: theme.colors.primary,
-        paddingVertical: 18,
-        borderRadius: 15,
-        alignItems: 'center',
-        ...theme.shadows.medium,
         marginTop: 10,
+        borderRadius: 18,
+        overflow: 'hidden',
+        ...theme.shadows.medium,
+    },
+    gradientButton: {
+        paddingVertical: 20,
+        paddingHorizontal: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     calculateButtonText: {
-        color: '#FFF',
+        color: '#FFFFFF',
         fontSize: 17,
-        fontWeight: 'bold',
+        fontFamily: 'PlusJakartaSans_700Bold',
+        letterSpacing: 0.5,
+    },
+    calculateButtonArrow: {
+        color: '#FFFFFF',
+        fontSize: 22,
+        fontWeight: '300',
     }
 });

@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
 
   heroTitle: {
     fontSize: 28,
-    fontWeight: "800",
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
     color: "#FFFFFF",
   },
 
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 16,
     color: "#EAF7F6",
-    fontWeight: "600",
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
 
   emptyCard: {
@@ -353,13 +353,13 @@ const styles = StyleSheet.create({
 
   metricIconText: {
     fontSize: 20,
-    fontWeight: "800",
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
     color: "#213547",
   },
 
   metricTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: 'PlusJakartaSans_700Bold',
     color: "#2B3C4D",
   },
 
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
 
   metricAvg: {
     fontSize: 20,
-    fontWeight: "800",
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
     color: "#111827",
     marginRight: 6,
   },
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   metricUnit: {
     fontSize: 13,
     color: "#6B7280",
-    fontWeight: "600",
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
 
   labelRow: {
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   dayLabel: {
     fontSize: 12,
     color: "#7A8793",
-    fontWeight: "600",
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
 
   tipBox: {
@@ -406,6 +406,6 @@ const styles = StyleSheet.create({
     color: "#5C4A4A",
     fontSize: 14,
     lineHeight: 23,
-    fontWeight: "600",
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
 });

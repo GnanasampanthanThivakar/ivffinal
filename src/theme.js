@@ -1,17 +1,19 @@
 
 export const theme = {
   colors: {
-    primary: '#40918B', // Teal
-    secondary: '#FFCBA4', // Peach
-    background: '#FAFAFA', // Light Gray for general backgrounds
-    surface: '#FFFFFF', // White for cards
-    text: '#2D3436', // Softer black
-    textLight: '#636E72', // Softer gray
-    inputBorder: '#DFE6E9',
-    inputBackground: '#F0F2F5', // Very light gray for inputs
-    progressBarBackground: '#DFE6E9',
-    progressBarFill: '#40918B',
-    error: '#D63031',
+    primary: '#0D9488', // Deep Teal
+    secondary: '#FDBA74', // Soft Amber
+    accent: '#8B5CF6', // Modern Violet
+    background: '#F8FAFC', // Slate background
+    surface: '#FFFFFF', // Clean White
+    text: '#0F172A', // Slate 900
+    textLight: '#64748B', // Slate 500
+    inputBorder: '#E2E8F0',
+    inputBackground: '#F1F5F9', 
+    progressBarBackground: '#E2E8F0',
+    progressBarFill: '#0D9488',
+    error: '#EF4444',
+    success: '#10B981',
   },
   spacing: {
     xs: 4,
@@ -23,32 +25,32 @@ export const theme = {
   },
   borderRadius: {
     s: 8,
-    m: 12,
-    l: 16,
-    xl: 24,
-    round: 50,
+    m: 14,
+    l: 20,
+    xl: 32,
+    round: 999,
   },
   shadows: {
     soft: {
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 3,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      elevation: 2,
     },
     medium: {
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.1,
-      shadowRadius: 15,
-      elevation: 5,
+      shadowColor: "#0D9488",
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.12,
+      shadowRadius: 20,
+      elevation: 6,
     },
-    hard: {
+    premium: {
       shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 4,
-      elevation: 4,
+      shadowOffset: { width: 0, height: 20 },
+      shadowOpacity: 0.1,
+      shadowRadius: 30,
+      elevation: 10,
     }
   },
   typography: {

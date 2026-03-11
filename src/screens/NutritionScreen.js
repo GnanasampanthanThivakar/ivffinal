@@ -96,6 +96,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...theme.typography.heading,
+        fontFamily: 'PlusJakartaSans_700Bold',
         color: '#FFFFFF',
         fontSize: 22,
         marginBottom: 8,
@@ -103,6 +104,7 @@ const styles = StyleSheet.create({
     },
     headerSubtitle: {
         ...theme.typography.subheading,
+        fontFamily: 'PlusJakartaSans_500Medium',
         color: 'rgba(255,255,255,0.8)',
         fontSize: 14,
         textAlign: 'center',
@@ -120,12 +122,14 @@ const styles = StyleSheet.create({
     },
     impactTitle: {
         ...theme.typography.heading,
+        fontFamily: 'PlusJakartaSans_700Bold',
         fontSize: 18,
         marginBottom: 4,
         textAlign: 'center',
     },
     impactDesc: {
         ...theme.typography.subheading,
+        fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 13,
         textAlign: 'center',
         marginBottom: 20,
@@ -153,14 +157,14 @@ const styles = StyleSheet.create({
     },
     scoreValue: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
         color: theme.colors.text,
         marginBottom: 4,
     },
     scoreLabel: {
         fontSize: 11,
         color: theme.colors.textLight,
-        fontWeight: '600',
+        fontFamily: 'PlusJakartaSans_700Bold',
         textAlign: 'center',
     },
     scoreArrow: {
@@ -176,17 +180,19 @@ const styles = StyleSheet.create({
     },
     impactHighlightText: {
         color: '#2E7D32',
-        fontWeight: 'bold',
+        fontFamily: 'PlusJakartaSans_700Bold',
         fontSize: 14,
     },
     sectionTitle: {
         ...theme.typography.heading,
+        fontFamily: 'PlusJakartaSans_700Bold',
         fontSize: 18,
         marginBottom: 16,
         marginLeft: 4,
     },
     sectionSubtitle: {
         ...theme.typography.subheading,
+        fontFamily: 'PlusJakartaSans_400Regular',
         fontSize: 14,
         marginBottom: 16,
         marginLeft: 4,
@@ -214,14 +220,14 @@ const styles = StyleSheet.create({
     },
     deficiencyName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: 'PlusJakartaSans_700Bold',
         color: theme.colors.text,
         marginBottom: 4,
     },
     deficiencyStatus: {
         fontSize: 12,
         color: theme.colors.error,
-        fontWeight: '600',
+        fontFamily: 'PlusJakartaSans_700Bold',
     },
     foodCard: {
         flexDirection: 'row',
@@ -248,7 +254,7 @@ const styles = StyleSheet.create({
     },
     foodName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: 'PlusJakartaSans_700Bold',
         color: theme.colors.text,
         marginBottom: 4,
     },
@@ -257,10 +263,11 @@ const styles = StyleSheet.create({
         color: theme.colors.textLight,
         marginBottom: 8,
         lineHeight: 18,
+        fontFamily: 'PlusJakartaSans_400Regular',
     },
     foodAmount: {
         fontSize: 12,
-        fontWeight: 'bold',
+        fontFamily: 'PlusJakartaSans_700Bold',
         color: theme.colors.primary,
     }
 });

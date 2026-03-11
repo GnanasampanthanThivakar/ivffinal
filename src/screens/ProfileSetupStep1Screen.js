@@ -6,11 +6,15 @@ import {
   TextInput, 
   ScrollView, 
   TouchableOpacity, 
-  Switch, 
-  SafeAreaView 
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions
 } from 'react-native';
-import Slider from '@react-native-community/slider';
+import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+
+const { width } = Dimensions.get('window');
 
 export default function ProfileSetupScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -18,88 +22,124 @@ export default function ProfileSetupScreen({ navigation }) {
   const [height, setHeight] = useState('160');
   const [weight, setWeight] = useState('55');
 
-
-
-
+  const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit }) => {
+    const [isFocused, setIsFocused] = useState(false);
+    return (
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+        <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
+          <TextInput 
+            style={styles.input} 
+            placeholder={placeholder}
+            placeholderTextColor="#94A3B8"
+            value={value}
+            onChangeText={onChangeText}
+            keyboardType={keyboardType}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+          />
+        </View>
+      </View>
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-         <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBar, { width: '33%' }]} />
-         </View>
-         <Text style={styles.stepIndicator}>Step 1 of 3</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>About You</Text>
-        <Text style={styles.subtitle}>Help us understand your personal profile.</Text>
-
-        <View style={styles.formContainer}>
-            {/* Name */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>What's your name?</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="Ex. Sarah"
-                placeholderTextColor="#A0A0A0"
-                value={name}
-                onChangeText={setName}
-              />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0D9488', '#0F766E']}
+        style={styles.headerPanel}
+      >
+        <SafeAreaView>
+          <View style={styles.headerContent}>
+            <View style={styles.progressSection}>
+              <View style={styles.progressBarWrapper}>
+                <View style={[styles.progressBar, { width: '33.33%' }]} />
+              </View>
+              <Text style={styles.stepText}>Step 1 of 3</Text>
             </View>
+            <Text style={styles.headerTitle}>Profile Setup</Text>
+            <Text style={styles.headerSubtitle}>Personalizing your IVF journey</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
-            {/* Age */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Age</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="Ex. 32" 
-                placeholderTextColor="#A0A0A0"
-                keyboardType="numeric"
-                value={age}
-                onChangeText={setAge}
-              />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.introBox}>
+            <View style={styles.introIconBox}>
+                <Text style={styles.introIcon}>👋</Text>
             </View>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.introTitle}>About You</Text>
+                <Text style={styles.introText}>Let's start with the basics to build your core profile.</Text>
+            </View>
+          </View>
 
-            {/* Height & Weight Row */}
+          <View style={styles.glassCard}>
+            <InputGroup 
+              label="What's your name?" 
+              value={name} 
+              onChangeText={setName} 
+              placeholder="Ex. Sarah" 
+            />
+
+            <InputGroup 
+              label="Age" 
+              value={age} 
+              onChangeText={setAge} 
+              placeholder="Ex. 32" 
+              keyboardType="numeric" 
+            />
+
             <View style={styles.row}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                <Text style={styles.label}>Height (cm)</Text>
-                <TextInput 
-                  style={styles.input} 
-                  keyboardType="numeric"
-                  value={height}
-                  onChangeText={setHeight}
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <InputGroup 
+                  label="Height" 
+                  unit="cm"
+                  value={height} 
+                  onChangeText={setHeight} 
+                  placeholder="160" 
+                  keyboardType="numeric" 
                 />
               </View>
-              <View style={[styles.inputGroup, { flex: 1, marginLeft: 12 }]}>
-                <Text style={styles.label}>Weight (kg)</Text>
-                <TextInput 
-                  style={styles.input} 
-                  keyboardType="numeric"
-                  value={weight}
-                  onChangeText={setWeight}
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <InputGroup 
+                  label="Weight" 
+                  unit="kg"
+                  value={weight} 
+                  onChangeText={setWeight} 
+                  placeholder="55" 
+                  keyboardType="numeric" 
                 />
               </View>
             </View>
-        </View>
+          </View>
 
-        <TouchableOpacity 
-          style={styles.nextButton}
-          onPress={() => navigation.navigate('ProfileSetupStep2', {
-            name,
-            age,
-            height,
-            weight
-          })}
-          activeOpacity={0.8}
-        >
-            <Text style={styles.nextButtonText}>Next</Text>
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.nextButton}
+            onPress={() => navigation.navigate('ProfileSetupStep2', {
+              name, age, height, weight
+            })}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#0D9488', '#14B8A6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
+            >
+              <Text style={styles.nextButtonText}>Continue</Text>
+              <Text style={styles.buttonArrow}>→</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-        <View style={{height: 40}} /> 
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: 40 }} /> 
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -108,82 +148,158 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  header: {
-    paddingHorizontal: theme.spacing.l,
-    paddingTop: theme.spacing.l,
-    paddingBottom: theme.spacing.m,
-    backgroundColor: theme.colors.background,
+  headerPanel: {
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    ...theme.shadows.premium,
   },
-  progressBarContainer: {
-      height: 6,
-      backgroundColor: theme.colors.progressBarBackground,
-      borderRadius: 3,
-      marginBottom: 8,
-      overflow: 'hidden',
+  headerContent: {
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
+  },
+  progressSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  progressBarWrapper: {
+    flex: 1,
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 3,
+    marginRight: 16,
+    overflow: 'hidden',
   },
   progressBar: {
-      height: '100%',
-      backgroundColor: theme.colors.primary,
-      borderRadius: 3,
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
   },
-  stepIndicator: {
-      ...theme.typography.label,
-      color: theme.colors.textLight,
-      fontSize: 12,
-      textAlign: 'right',
-      marginBottom: 0,
+  stepText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    opacity: 0.9,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    marginTop: 2,
   },
   scrollContent: {
-    paddingHorizontal: theme.spacing.l,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
-  title: {
-    ...theme.typography.heading,
-    marginBottom: theme.spacing.s,
+  introBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    ...theme.shadows.soft,
+  },
+  introIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  introIcon: {
+    fontSize: 24,
+  },
+  introTitle: {
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans_700Bold',
     color: theme.colors.text,
+    marginBottom: 2,
   },
-  subtitle: {
-    ...theme.typography.subheading,
-    marginBottom: theme.spacing.xl,
+  introText: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_400Regular',
     color: theme.colors.textLight,
+    lineHeight: 18,
   },
-  formContainer: {
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.l,
-      padding: theme.spacing.l,
-      ...theme.shadows.soft,
-      marginBottom: theme.spacing.xl,
+  glassCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 24,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.8)',
+    ...theme.shadows.soft,
   },
   inputGroup: {
-    marginBottom: theme.spacing.l,
+    marginBottom: 20,
   },
   label: {
-    ...theme.typography.label,
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#475569',
+    marginBottom: 8,
+    marginLeft: 2,
+  },
+  unitText: {
+    fontWeight: '400',
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  inputWrapper: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+  },
+  inputWrapperFocused: {
+    borderColor: theme.colors.primary,
+    backgroundColor: '#FFFFFF',
   },
   input: {
-    backgroundColor: theme.colors.inputBackground,
-    borderWidth: 1,
-    borderColor: 'transparent', // Cleaner look, only transparent unless focused (could add focus state logic later)
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.borderRadius.m,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     color: theme.colors.text,
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   nextButton: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 18,
-    borderRadius: theme.borderRadius.xl,
-    alignItems: 'center',
+    borderRadius: 20,
+    overflow: 'hidden',
     ...theme.shadows.medium,
   },
+  gradientButton: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   nextButtonText: {
-    ...theme.typography.button,
+    color: '#FFFFFF',
     fontSize: 18,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    marginRight: 8,
+  },
+  buttonArrow: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '300',
   }
 });
