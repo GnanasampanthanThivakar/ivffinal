@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, TouchableOpacity, StatusBar, Platform, Animated, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, TouchableOpacity, StatusBar, Platform, Animated, ActivityIndicator, Alert, Image } from 'react-native';
 import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop, Shadow } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
@@ -141,6 +141,48 @@ export default function ResultScreen({ navigation, route }) {
             setLoadingAdvice(false);
         }
     };
+    
+    // Helper function to render AI advice with structure
+    const renderAdviceContent = (text) => {
+        if (!text) return null;
+        
+        // Split by double newlines or single newlines that look like list starts
+        const sections = text.split(/\n\n|\n(?=[•\-\*\d\.])/);
+        
+        return sections.map((section, idx) => {
+            const trimmed = section.trim();
+            if (!trimmed) return null;
+            
+            // Check if it's a list (starts with •, -, *, or 1.)
+            const isBullet = /^[•\-\*\d]/.test(trimmed);
+            
+            if (isBullet) {
+                // Split internal lines if it's a block of bullets
+                const items = trimmed.split('\n');
+                return (
+                    <View key={`section-${idx}`} style={styles.adviceList}>
+                        {items.map((item, i) => {
+                            const cleanItem = item.replace(/^[•\-\*\s\d\.]+/, '').trim();
+                            if (!cleanItem) return null;
+                            return (
+                                <View key={`item-${i}`} style={styles.adviceBulletWrapper}>
+                                    <View style={styles.adviceBulletDot} />
+                                    <Text style={styles.adviceBulletText}>{cleanItem}</Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                );
+            }
+            
+            // Render regular paragraph
+            return (
+                <Text key={`section-${idx}`} style={styles.adviceParagraph}>
+                    {trimmed}
+                </Text>
+            );
+        });
+    };
 
     return (
         <View style={styles.container}>
@@ -235,39 +277,62 @@ export default function ResultScreen({ navigation, route }) {
                     </View>
                 </View>
 
-                {/* Doctor Recommendation Button */}
-                <TouchableOpacity
-                    style={styles.doctorButton}
-                    onPress={fetchDoctorRecommendation}
-                    disabled={loadingAdvice}
-                >
+                {/* New Premium Doctor Consultation Card */}
+                <View style={styles.ctaCardWrapper}>
                     <LinearGradient
-                        colors={['#7C3AED', '#5B21B6']}
-                        style={styles.doctorButtonGradient}
+                        colors={['#0F766E', '#0D9488']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.ctaCard}
                     >
-                        {loadingAdvice ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <ActivityIndicator color="#FFFFFF" size="small" />
-                                <Text style={styles.doctorButtonText}>  MedLLaMA2 is thinking...</Text>
-                            </View>
-                        ) : (
-                            <Text style={styles.doctorButtonText}>🩺 Get Doctor Recommendation</Text>
-                        )}
+                        <View style={styles.ctaLeft}>
+                            <Text style={styles.ctaTitle}>Get Clinical{"\n"}Recommendation</Text>
+                            <Text style={styles.ctaSubtitle}>Personalized AI medical insights</Text>
+                            
+                            <TouchableOpacity
+                                style={styles.ctaButton}
+                                onPress={fetchDoctorRecommendation}
+                                disabled={loadingAdvice}
+                            >
+                                <View style={styles.ctaButtonInner}>
+                                    {loadingAdvice ? (
+                                        <ActivityIndicator color="#0D9488" size="small" />
+                                    ) : (
+                                        <>
+                                            <Text style={styles.ctaButtonIcon}>🩺</Text>
+                                            <Text style={styles.ctaButtonText}>Get Now</Text>
+                                        </>
+                                    )}
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <View style={styles.ctaImageContainer}>
+                            <Image 
+                                source={require('../../assets/ai_doctor.png')} 
+                                style={styles.ctaImage}
+                            />
+                        </View>
                     </LinearGradient>
-                </TouchableOpacity>
+                </View>
 
                 {/* Doctor Advice Response */}
                 {doctorAdvice && (
                     <View style={styles.doctorCard}>
                         <View style={styles.doctorCardHeader}>
-                            <Text style={styles.doctorAvatar}>🩺</Text>
+                            <Image 
+                                source={require('../../assets/ai_doctor.png')} 
+                                style={styles.doctorAvatarSmall} 
+                            />
                             <View>
                                 <Text style={styles.doctorName}>MedLLaMA2 AI Doctor</Text>
-                                <Text style={styles.doctorSubtitle}>Personalized Medical Advice</Text>
+                                <Text style={styles.doctorSubtitleSmall}>Personalized Medical Advice</Text>
                             </View>
                         </View>
                         <View style={styles.doctorDivider} />
-                        <Text style={styles.doctorText}>{doctorAdvice}</Text>
+                        <View style={styles.adviceContentContainer}>
+                            {renderAdviceContent(doctorAdvice)}
+                        </View>
                         <View style={styles.disclaimerBox}>
                             <Text style={styles.disclaimerText}>⚠️ This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.</Text>
                         </View>
@@ -582,21 +647,86 @@ const styles = StyleSheet.create({
         color: '#0F172A',
         fontFamily: 'PlusJakartaSans_700Bold',
     },
-    doctorButton: {
-        borderRadius: 18,
+    ctaCardWrapper: {
+        marginBottom: 24,
+        borderRadius: 28,
         overflow: 'hidden',
-        marginBottom: 16,
+        ...theme.shadows.medium,
+    },
+    ctaCard: {
+        flexDirection: 'row',
+        padding: 24,
+        minHeight: 240, // Increased to provide more head room
+        alignItems: 'center',
+    },
+    ctaLeft: {
+        flex: 1.2,
+        zIndex: 2,
+    },
+    ctaTitle: {
+        fontSize: 22,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+        color: '#FFFFFF',
+        lineHeight: 28,
+        marginBottom: 8,
+    },
+    ctaSubtitle: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: 'rgba(255, 255, 255, 0.8)',
+        marginBottom: 20,
+    },
+    ctaButton: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
         ...theme.shadows.soft,
     },
-    doctorButtonGradient: {
-        paddingVertical: 20,
+    ctaButtonInner: {
+        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
     },
-    doctorButtonText: {
-        color: '#FFFFFF',
-        fontSize: 17,
+    ctaButtonIcon: {
+        fontSize: 16,
+        marginRight: 8,
+    },
+    ctaButtonText: {
+        color: '#0D9488',
+        fontSize: 15,
         fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    ctaImageContainer: {
+        flex: 1,
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        right: -10,
+        width: '50%',
+        justifyContent: 'flex-end',
+    },
+    ctaImage: {
+        width: '100%',
+        height: '100%',
+        // @ts-ignore: web alignment properties to override RN Web defaults
+        objectFit: 'cover',
+        objectPosition: 'top center',
+        backgroundSize: 'cover',
+        backgroundPosition: 'top center !important', // Using !important to force the override
+        backgroundRepeat: 'no-repeat',
+    },
+    doctorAvatarSmall: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        marginRight: 14,
+        backgroundColor: '#F1F5F9',
+    },
+    doctorSubtitleSmall: {
+        fontSize: 12,
+        color: '#0D9488',
+        fontFamily: 'PlusJakartaSans_500Medium',
     },
     doctorCard: {
         backgroundColor: '#FFFFFF',
@@ -629,14 +759,41 @@ const styles = StyleSheet.create({
     doctorDivider: {
         height: 1,
         backgroundColor: '#F3E8FF',
-        marginBottom: 14,
+        marginBottom: 16,
     },
-    doctorText: {
-        fontSize: 14,
+    adviceContentContainer: {
+        marginBottom: 16,
+    },
+    adviceParagraph: {
+        fontSize: 15,
         lineHeight: 24,
         color: '#334155',
         fontFamily: 'PlusJakartaSans_400Regular',
-        marginBottom: 14,
+        marginBottom: 12,
+    },
+    adviceList: {
+        marginBottom: 12,
+        paddingLeft: 4,
+    },
+    adviceBulletWrapper: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    },
+    adviceBulletDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#0D9488',
+        marginTop: 9,
+        marginRight: 12,
+    },
+    adviceBulletText: {
+        flex: 1,
+        fontSize: 15,
+        lineHeight: 24,
+        color: '#334155',
+        fontFamily: 'PlusJakartaSans_500Medium',
     },
     disclaimerBox: {
         backgroundColor: '#FEF3C7',
