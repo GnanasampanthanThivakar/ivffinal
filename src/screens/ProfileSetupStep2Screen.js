@@ -16,6 +16,39 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
 
+const GradeSelector = ({ label, selectedGrade, onSelect, error }) => {
+  const grades = [
+    { value: 0, label: 'None', sub: 'G0' },
+    { value: 1, label: '<10%', sub: 'G1' },
+    { value: 2, label: '10-25%', sub: 'G2' },
+    { value: 3, label: '25-50%', sub: 'G3' },
+    { value: 4, label: '>50%', sub: 'G4' },
+  ];
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.gradeGrid}>
+        {grades.map((g) => (
+          <TouchableOpacity 
+            key={g.value}
+            style={[
+              styles.gradeButton,
+              selectedGrade === g.value && styles.gradeButtonSelected,
+              error && !selectedGrade && selectedGrade !== 0 && styles.gradeButtonError
+            ]}
+            onPress={() => onSelect(g.value)}
+          >
+            <Text style={[styles.gradeLabel, selectedGrade === g.value && styles.gradeLabelSelected]}>{g.label}</Text>
+            <Text style={[styles.gradeSub, selectedGrade === g.value && styles.gradeSubSelected]}>{g.sub}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+};
+
 const InputGroup = ({ label, value, onChangeText, placeholder, unit, keyboardType = 'numeric', helperText, error }) => {
   const [isFocused, setIsFocused] = useState(false);
   return (
@@ -50,7 +83,7 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
   const [eggsRetrieved, setEggsRetrieved] = useState('');
   const [priorSAB, setPriorSAB] = useState('');
   const [freshD3CellCount, setFreshD3CellCount] = useState('');
-  const [freshD3Fragmentation, setFreshD3Fragmentation] = useState('');
+  const [freshD3Fragmentation, setFreshD3Fragmentation] = useState(null);
   const [day2E2, setDay2E2] = useState('');
   const [triggerDayE2, setTriggerDayE2] = useState('');
   const [stimulationDays, setStimulationDays] = useState('');
@@ -84,9 +117,7 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
     if (freshD3CellCount === '') newErrors.cells = "Required field";
     else if (isNaN(cells) || cells < 0 || cells > 50) newErrors.cells = "Must be 0-50";
 
-    const frag = parseFloat(freshD3Fragmentation);
-    if (freshD3Fragmentation === '') newErrors.frag = "Required field";
-    else if (isNaN(frag) || frag < 0 || frag > 100) newErrors.frag = "Must be 0-100%";
+    if (freshD3Fragmentation === null) newErrors.frag = "Please select a grade";
 
     const d2e2 = parseFloat(day2E2);
     if (day2E2 === '') newErrors.d2e2 = "Required field";
@@ -196,7 +227,12 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
                     <InputGroup label="D3 Cell Count" value={freshD3CellCount} onChangeText={(t) => { setFreshD3CellCount(t); if(errors.cells) setErrors({...errors, cells: ''}); }} placeholder="8" error={errors.cells} />
                 </View>
             </View>
-            <InputGroup label="D3 Fragmentation" unit="%" value={freshD3Fragmentation} onChangeText={(t) => { setFreshD3Fragmentation(t); if(errors.frag) setErrors({...errors, frag: ''}); }} placeholder="0 - 100" error={errors.frag} />
+            <GradeSelector 
+              label="D3 Fragmentation Grade" 
+              selectedGrade={freshD3Fragmentation} 
+              onSelect={(g) => { setFreshD3Fragmentation(g); if(errors.frag) setErrors({...errors, frag: ''}); }} 
+              error={errors.frag}
+            />
           </View>
 
           <View style={styles.sectionHeaderBox}>
@@ -472,6 +508,46 @@ const styles = StyleSheet.create({
     color: '#0D9488',
     fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontSize: 16,
+  },
+  gradeGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  gradeButton: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  gradeButtonSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: '#F0FDFA',
+    transform: [{ scale: 1.05 }],
+  },
+  gradeButtonError: {
+    borderColor: '#EF4444',
+  },
+  gradeLabel: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#64748B',
+  },
+  gradeLabelSelected: {
+    color: theme.colors.primary,
+  },
+  gradeSub: {
+    fontSize: 9,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  gradeSubSelected: {
+    color: '#0D9488',
   },
   nextButton: {
     marginTop: 10,

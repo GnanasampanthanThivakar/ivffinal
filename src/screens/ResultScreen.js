@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
-const API_URL = 'http://localhost:8000';
+const API_URL = 'http://127.0.0.1:8000';
 
 // Circular Progress Component
 const SuccessRing = ({ percentage = 68 }) => {
@@ -47,7 +47,9 @@ const SuccessRing = ({ percentage = 68 }) => {
                 </G>
             </Svg>
             <View style={styles.ringTextContainer}>
-                <Text style={styles.ringPercentage}>{percentage}%</Text>
+                <Text style={styles.ringPercentage}>
+                    {typeof percentage === 'number' ? percentage.toFixed(1) : percentage}%
+                </Text>
                 <Text style={styles.ringLabel}>Confidence</Text>
             </View>
         </View>
@@ -103,6 +105,7 @@ const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
 
 export default function ResultScreen({ navigation, route }) {
     const params = route.params || {};
+    console.log('ResultScreen received params:', params);
 
     const getVal = (val, defaultValue) => {
         if (val === undefined || val === null || val === '') return defaultValue;
@@ -122,7 +125,7 @@ export default function ResultScreen({ navigation, route }) {
     const currentFrag = getVal(params.d3_fragmentation || params.freshD3Fragmentation, 10);
     const fragFactor = Math.max(10, Math.min(95, ((30 - currentFrag) / 30) * 100));
 
-    const successRate = params.predictionSuccess !== undefined ? Math.round(params.predictionSuccess) : 48;
+    const successRate = params.predictionSuccess !== undefined ? parseFloat(params.predictionSuccess) : 48.0;
 
     const [doctorAdvice, setDoctorAdvice] = useState(null);
     const [loadingAdvice, setLoadingAdvice] = useState(false);

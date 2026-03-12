@@ -131,25 +131,59 @@ def predict_ivf(data: IVFInput):
         raise HTTPException(status_code=500, detail="Original Model or Scaler not loaded.")
     
     try:
-        # Prepare data for prediction (7 features)
-        input_data = np.array([[
-            data.age, data.bmi, data.amh_level, data.prior_sab,
-            data.d3_cell_count, data.d3_fragmentation, data.calculated_velocity
-        ]])
+        # Smart Fragmentation Mapping: Handles both Grade (0-4) and Percentage (5-100)
+        frag_input = data.d3_fragmentation
+        if frag_input <= 4:
+            # If input is 4 or less, assume it's already a clinical grade (None, <10, 10-25, 25-50, >50)
+            frag_grade = int(frag_input)
+        else:
+            # If input is >4, treat as Percentage and map to Grade
+            if frag_input < 10:
+                frag_grade = 1
+            elif frag_input <= 25:
+                frag_grade = 2
+            elif frag_input <= 50:
+                frag_grade = 3
+            else:
+                frag_grade = 4
+
+        # Prepare data for prediction using exact feature names expected by the model
+        input_data = {
+            'Patient_Age': data.age,
+            'Producer_BMI': data.bmi,
+            'AMH': data.amh_level,
+            'Prior_SAB': data.prior_sab,
+            'Fresh_D3_Cnum': data.d3_cell_count,
+            'Fresh_D3_Fr': frag_grade,
+            'E2_Velocity': data.calculated_velocity
+        }
+        
+        # Create DataFrame
+        df_input = pd.DataFrame([input_data])
+        
+        # Align columns with scaler expectations
+        if hasattr(scaler, 'feature_names_in_'):
+            df_input = df_input[scaler.feature_names_in_]
         
         # Scale the data
-        scaled_data = scaler.transform(input_data)
+        scaled_data = scaler.transform(df_input)
         
         # Predict probability
         # [0][1] gets probability of class 1 (success)
         prediction_prob = model.predict_proba(scaled_data)[0][1]
         
+        # Determine clinical status
+        status = "Success" if prediction_prob >= 0.5 else "Failure"
+        
         return {
             "success": True,
+            "status": status,
             "prediction": round(float(prediction_prob * 100), 2),
-            "success_probability_percentage": round(float(prediction_prob * 100), 2)
+            "success_probability_percentage": round(float(prediction_prob * 100), 2),
+            "failure_risk_percentage": round(float((1 - prediction_prob) * 100), 2)
         }
     except Exception as e:
+        print(f"Prediction Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 # --- CLINICAL REFERENCE RANGES FOR SMART RECOMMENDATIONS ---

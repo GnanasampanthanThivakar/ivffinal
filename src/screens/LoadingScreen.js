@@ -84,30 +84,37 @@ export default function LoadingScreen({ navigation, route }) {
                   body: JSON.stringify(requestBody)
               });
 
-              const data = await response.json();
-              if (response.ok && data.success) {
-                  // Wait until progress reaches 100% just to show the UI
-                  const checkProgress = setInterval(() => {
-                      setProgress((currentProgress) => {
-                          if (currentProgress >= 100) {
-                              clearInterval(checkProgress);
-                              setTimeout(() => {
-                                  // Pass the prediction percentage to the next screen (params or direct)
-                                  navigation.replace('MainTabs', {
-                                      ...params,
-                                      predictionSuccess: data.success_probability_percentage || data.prediction || 68
-                                  });
-                              }, 500);
-                              return 100;
-                          }
-                          return currentProgress;
-                      });
-                  }, 50);
-              } else {
-                  console.error('API Error:', data.detail);
-                  // Fallback if API fails
-                  fallbackNavigation();
-              }
+               const data = await response.json();
+               console.log('IVF API Response:', data);
+               
+               if (response.ok && data.success) {
+                   const score = data.success_probability_percentage || data.prediction || 68;
+                   console.log('Setting predictionSuccess to:', score);
+                   
+                   // Wait until progress reaches 100% just to show the UI
+                   const checkProgress = setInterval(() => {
+                       setProgress((currentProgress) => {
+                           if (currentProgress >= 100) {
+                               clearInterval(checkProgress);
+                               setTimeout(() => {
+                                   console.log('Navigating to MainTabs Dashboard with score:', score);
+                                   navigation.replace('MainTabs', {
+                                       screen: 'Dashboard',
+                                       params: {
+                                           ...params,
+                                           predictionSuccess: score
+                                       }
+                                   });
+                               }, 500);
+                               return 100;
+                           }
+                           return currentProgress;
+                       });
+                   }, 50);
+               } else {
+                   console.error('API Error:', data.detail || 'Unknown error');
+                   fallbackNavigation();
+               }
           } catch (error) {
               console.error('Network Error:', error);
               // Fallback if no network
