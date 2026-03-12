@@ -325,6 +325,7 @@ export default function ResultScreen({ navigation, route }) {
                             <Image 
                                 source={require('../../assets/ai_doctor.png')} 
                                 style={styles.ctaImage}
+                                resizeMode="contain"
                             />
                         </View>
                     </LinearGradient>
@@ -712,21 +713,17 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans_700Bold',
     },
     ctaImageContainer: {
-        flex: 1,
         position: 'absolute',
         top: 0,
         bottom: 0,
-        right: -10,
-        width: '50%',
+        right: -20,
+        width: '60%',
         justifyContent: 'flex-end',
+        alignItems: 'flex-end',
     },
     ctaImage: {
         width: '100%',
         height: '100%',
-        // @ts-ignore: web-only properties for image alignment
-        objectFit: 'cover',
-        objectPosition: 'top',
-        backgroundPosition: 'top center',
     },
     doctorAvatarSmall: {
         width: 44,
