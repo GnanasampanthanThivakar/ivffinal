@@ -111,28 +111,32 @@ export default function NutritionResultScreen({ navigation, route }) {
                 showsVerticalScrollIndicator={false}
             >
 
-                {/* Score Overview Card */}
-                <View style={[styles.card, styles.scoreCard]}>
-                    <View style={styles.scoreRow}>
-                        <View style={styles.scoreItem}>
-                            <Text style={styles.scoreLabel}>Current</Text>
-                            <Text style={styles.scoreValue}>{predictionSuccess.toFixed(1)}%</Text>
+                {/* Premium Optimization Hub */}
+                <View style={styles.optimizationHub}>
+                    <View style={styles.hubHeader}>
+                        <View style={styles.hubBadge}>
+                            <Text style={styles.hubBadgeText}>OPTIMIZATION ENGINE</Text>
                         </View>
-                        <View style={styles.scoreDivider} />
-                        <View style={styles.scoreItem}>
-                            <Text style={styles.scoreLabel}>Optimized</Text>
-                            <Text style={[styles.scoreValue, { color: '#10B981' }]}>{optimizedProbability.toFixed(1)}%</Text>
-                        </View>
+                        <Text style={styles.hubStatus}>ACTIVE SIMULATION</Text>
                     </View>
-                    <View style={styles.impactBadgeWrapper}>
-                        <LinearGradient
-                            colors={impactScore > 0 ? ['#10B981', '#059669'] : ['#64748B', '#475569']}
-                            style={styles.impactBadge}
-                        >
-                            <Text style={styles.impactBadgeText}>
-                                {impactScore > 0 ? `+${impactScore.toFixed(1)}% Potential Improvement` : 'Profile Already Optimized'}
+                    
+                    <View style={styles.hubMain}>
+                        <View style={styles.hubTextContent}>
+                            <Text style={styles.hubMainTitle}>Potential Gain</Text>
+                            <Text style={styles.hubMainDesc}>
+                                Projected increase in success probability through genomic-aligned nutrition.
                             </Text>
-                        </LinearGradient>
+                        </View>
+                        
+                        <View style={styles.hubScoreContainer}>
+                            <LinearGradient
+                                colors={['#10B981', '#059669']}
+                                style={styles.hubScoreCircle}
+                            >
+                                <Text style={styles.hubScoreValue}>+{impactScore.toFixed(1)}%</Text>
+                            </LinearGradient>
+                            <View style={styles.hubScoreGlow} />
+                        </View>
                     </View>
                 </View>
 
@@ -303,54 +307,92 @@ const styles = StyleSheet.create({
         ...theme.shadows.premium,
         marginBottom: 24,
     },
-    scoreCard: {
-        alignItems: 'center',
-        marginTop: -50,
-    },
-    scoreRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
+    optimizationHub: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 20,
+        marginHorizontal: 4,
+        ...theme.shadows.premium,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.7)',
         marginBottom: 24,
     },
-    scoreItem: {
+    hubHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        flex: 1,
+        marginBottom: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
     },
-    scoreDivider: {
-        width: 1,
-        height: 40,
-        backgroundColor: '#E2E8F0',
+    hubBadge: {
+        backgroundColor: '#F0FDFA',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#CCFBF1',
     },
-    scoreLabel: {
-        fontSize: 12,
-        fontFamily: 'PlusJakartaSans_700Bold',
-        color: '#64748B',
-        textTransform: 'uppercase',
-        marginBottom: 8,
+    hubBadgeText: {
+        fontSize: 10,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+        color: '#0D9488',
         letterSpacing: 0.5,
     },
-    scoreValue: {
-        fontSize: 32,
+    hubStatus: {
+        fontSize: 10,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#94A3B8',
+        letterSpacing: 1,
+    },
+    hubMain: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    hubTextContent: {
+        flex: 1,
+        paddingRight: 16,
+    },
+    hubMainTitle: {
+        fontSize: 18,
         fontFamily: 'PlusJakartaSans_800ExtraBold',
         color: '#0F172A',
+        marginBottom: 4,
     },
-    impactBadgeWrapper: {
-        width: '100%',
-        borderRadius: 16,
-        overflow: 'hidden',
+    hubMainDesc: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#64748B',
+        lineHeight: 18,
     },
-    impactBadge: {
-        paddingVertical: 14,
-        alignItems: 'center',
+    hubScoreContainer: {
+        width: 80,
+        height: 80,
         justifyContent: 'center',
+        alignItems: 'center',
     },
-    impactBadgeText: {
+    hubScoreCircle: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2,
+        ...theme.shadows.medium,
+    },
+    hubScoreValue: {
         color: '#FFFFFF',
-        fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 15,
-        letterSpacing: 0.5,
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+    },
+    hubScoreGlow: {
+        position: 'absolute',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+        zIndex: 1,
     },
     summaryCard: {
         flexDirection: 'row',

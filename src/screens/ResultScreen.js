@@ -720,12 +720,10 @@ const styles = StyleSheet.create({
     ctaImage: {
         width: '100%',
         height: '100%',
-        // @ts-ignore: web alignment properties to override RN Web defaults
+        // @ts-ignore: web-only properties for image alignment
         objectFit: 'cover',
-        objectPosition: 'top center',
-        backgroundSize: 'cover',
-        backgroundPosition: 'top center !important', // Using !important to force the override
-        backgroundRepeat: 'no-repeat',
+        objectPosition: 'top',
+        backgroundPosition: 'top center',
     },
     doctorAvatarSmall: {
         width: 44,
