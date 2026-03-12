@@ -104,12 +104,23 @@ const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
 export default function ResultScreen({ navigation, route }) {
     const params = route.params || {};
 
-    const ageFactor = Math.max(10, Math.min(95, ((50 - (parseFloat(params.age) || 34)) / 32) * 100));
-    const amhFactor = Math.max(10, Math.min(95, ((parseFloat(params.amh_level || params.amhLevel) || 2) / 5) * 100));
-    const bmiVal = parseFloat(params.bmi) || 22.0;
-    const bmiFactor = Math.max(10, Math.min(95, (1 - Math.abs(22 - bmiVal) / 20) * 100));
-    const fragVal = parseFloat(params.d3_fragmentation || params.freshD3Fragmentation) || 10;
-    const fragFactor = Math.max(10, Math.min(95, ((30 - fragVal) / 30) * 100));
+    const getVal = (val, defaultValue) => {
+        if (val === undefined || val === null || val === '') return defaultValue;
+        const parsed = parseFloat(val);
+        return isNaN(parsed) ? defaultValue : parsed;
+    };
+
+    const currentAge = getVal(params.age, 34);
+    const ageFactor = Math.max(10, Math.min(95, ((50 - currentAge) / 32) * 100));
+
+    const currentAmh = getVal(params.amh_level || params.amhLevel, 2.0);
+    const amhFactor = Math.max(10, Math.min(95, (currentAmh / 5) * 100));
+
+    const currentBmi = getVal(params.bmi, 22.0);
+    const bmiFactor = Math.max(10, Math.min(95, (1 - Math.abs(22 - currentBmi) / 20) * 100));
+
+    const currentFrag = getVal(params.d3_fragmentation || params.freshD3Fragmentation, 10);
+    const fragFactor = Math.max(10, Math.min(95, ((30 - currentFrag) / 30) * 100));
 
     const successRate = params.predictionSuccess !== undefined ? Math.round(params.predictionSuccess) : 48;
 
@@ -260,19 +271,19 @@ export default function ResultScreen({ navigation, route }) {
                     <View style={styles.profileGrid}>
                         <View style={styles.profileItem}>
                             <Text style={styles.profileLabel}>Age</Text>
-                            <Text style={styles.profileValue}>{params.age || '34'} yrs</Text>
+                            <Text style={styles.profileValue}>{currentAge} yrs</Text>
                         </View>
                         <View style={styles.profileItem}>
                             <Text style={styles.profileLabel}>AMH</Text>
-                            <Text style={styles.profileValue}>{params.amh_level || params.amhLevel || '2.0'} ng/mL</Text>
+                            <Text style={styles.profileValue}>{currentAmh.toFixed(1)} ng/mL</Text>
                         </View>
                         <View style={styles.profileItem}>
                             <Text style={styles.profileLabel}>BMI</Text>
-                            <Text style={styles.profileValue}>{params.bmi || '22.0'}</Text>
+                            <Text style={styles.profileValue}>{currentBmi.toFixed(1)}</Text>
                         </View>
                         <View style={styles.profileItem}>
                             <Text style={styles.profileLabel}>Prior SAB</Text>
-                            <Text style={styles.profileValue}>{params.prior_sab || params.priorSAB || '0'}</Text>
+                            <Text style={styles.profileValue}>{getVal(params.prior_sab || params.priorSAB, 0)}</Text>
                         </View>
                     </View>
                 </View>

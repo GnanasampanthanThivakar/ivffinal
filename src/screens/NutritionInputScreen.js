@@ -102,8 +102,6 @@ export default function NutritionInputScreen({ navigation }) {
                 payload[key] = parseFloat(formData[key]) || 0;
             });
 
-            console.log("Sending Premium Payload:", payload);
-
             const response = await fetch('http://127.0.0.1:8000/api/predict/nutrition_full', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -113,27 +111,16 @@ export default function NutritionInputScreen({ navigation }) {
             const result = await response.json();
 
             if (result.success) {
-                // Use getParent to navigate to parent Stack Navigator
                 const parentNav = navigation.getParent();
-                if (parentNav) {
-                    parentNav.navigate('NutritionResult', {
-                        name: 'Patient',
-                        predictionSuccess: result.baseline_probability,
-                        optimizedProbability: result.optimized_probability,
-                        impactScore: result.impact_score,
-                        recommendation: result.recommendation,
-                        detailedRecommendations: result.detailed_recommendations
-                    });
-                } else {
-                    navigation.navigate('NutritionResult', {
-                        name: 'Patient',
-                        predictionSuccess: result.baseline_probability,
-                        optimizedProbability: result.optimized_probability,
-                        impactScore: result.impact_score,
-                        recommendation: result.recommendation,
-                        detailedRecommendations: result.detailed_recommendations
-                    });
-                }
+                const nav = parentNav || navigation;
+                nav.navigate('NutritionResult', {
+                    name: 'Patient',
+                    predictionSuccess: result.baseline_probability,
+                    optimizedProbability: result.optimized_probability,
+                    impactScore: result.impact_score,
+                    recommendation: result.recommendation,
+                    detailedRecommendations: result.detailed_recommendations
+                });
             } else {
                 Alert.alert("Prediction Error", result.detail || "Unknown error occurred");
             }

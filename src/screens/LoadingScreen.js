@@ -57,20 +57,23 @@ export default function LoadingScreen({ navigation, route }) {
   }, []);
 
   useEffect(() => {
-      // Create an async function to call the backend API and wait for the progress bar
       const fetchPrediction = async () => {
           try {
-              // The API expects age, bmi, amh_level, prior_sab, d3_cell_count, d3_fragmentation, calculated_velocity
               const apiUrl = 'http://127.0.0.1:8000/api/predict/ivf';
-              
+              const safeParse = (val, defaultValue) => {
+                  if (val === undefined || val === null || val === '') return defaultValue;
+                  const parsed = parseFloat(val);
+                  return isNaN(parsed) ? defaultValue : parsed;
+              };
+
               const requestBody = {
-                  age: parseFloat(params.age) || 30.0,
-                  bmi: parseFloat(params.bmi) || 22.0,
-                  amh_level: parseFloat(params.amhLevel) || 2.0,
-                  prior_sab: parseFloat(params.priorSAB) || 0.0,
-                  d3_cell_count: parseFloat(params.freshD3CellCount) || 8.0,
-                  d3_fragmentation: parseFloat(params.freshD3Fragmentation) || 0.0,
-                  calculated_velocity: parseFloat(params.calculatedVelocity) || 0.0
+                  age: safeParse(params.age, 30.0),
+                  bmi: safeParse(params.bmi, 22.0),
+                  amh_level: safeParse(params.amhLevel, 2.0),
+                  prior_sab: safeParse(params.priorSAB, 0.0),
+                  d3_cell_count: safeParse(params.freshD3CellCount, 8.0),
+                  d3_fragmentation: safeParse(params.freshD3Fragmentation, 0.0),
+                  calculated_velocity: safeParse(params.calculatedVelocity, 0.0)
               };
 
               const response = await fetch(apiUrl, {
