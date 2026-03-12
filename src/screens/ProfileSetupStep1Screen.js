@@ -9,38 +9,73 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
 const { width } = Dimensions.get('window');
 
+const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit, error }) => {
+  const [isFocused, setIsFocused] = useState(false);
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+      <View style={[
+        styles.inputWrapper, 
+        isFocused && styles.inputWrapperFocused,
+        error && styles.inputWrapperError
+      ]}>
+        <TextInput 
+          style={styles.input} 
+          placeholder={placeholder}
+          placeholderTextColor="#94A3B8"
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+        />
+      </View>
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    </View>
+  );
+};
+
 export default function ProfileSetupScreen({ navigation }) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('160');
   const [weight, setWeight] = useState('55');
+  const [errors, setErrors] = useState({});
 
-  const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit }) => {
-    const [isFocused, setIsFocused] = useState(false);
-    return (
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
-        <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
-          <TextInput 
-            style={styles.input} 
-            placeholder={placeholder}
-            placeholderTextColor="#94A3B8"
-            value={value}
-            onChangeText={onChangeText}
-            keyboardType={keyboardType}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-          />
-        </View>
-      </View>
-    );
+  const validate = () => {
+    let newErrors = {};
+    if (!name.trim()) newErrors.name = "Required field";
+    
+    const ageVal = parseFloat(age);
+    if (!age) newErrors.age = "Required field";
+    else if (isNaN(ageVal) || ageVal < 18 || ageVal > 60) newErrors.age = "Must be 18-60";
+
+    const heightVal = parseFloat(height);
+    if (!height) newErrors.height = "Required field";
+    else if (isNaN(heightVal) || heightVal < 120 || heightVal > 250) newErrors.height = "Must be 120-250cm";
+
+    const weightVal = parseFloat(weight);
+    if (!weight) newErrors.weight = "Required field";
+    else if (isNaN(weightVal) || weightVal < 30 || weightVal > 200) newErrors.weight = "Must be 30-200kg";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validate()) {
+      navigation.navigate('ProfileSetupStep2', {
+        name, age, height, weight
+      });
+    }
   };
 
   return (
@@ -82,16 +117,19 @@ export default function ProfileSetupScreen({ navigation }) {
             <InputGroup 
               label="What's your name?" 
               value={name} 
-              onChangeText={setName} 
+              onChangeText={(t) => { setName(t); setErrors({...errors, name: ''}); }} 
               placeholder="Ex. Sarah" 
+              error={errors.name}
             />
 
             <InputGroup 
               label="Age" 
               value={age} 
-              onChangeText={setAge} 
+              onChangeText={(t) => { setAge(t); setErrors({...errors, age: ''}); }} 
               placeholder="Ex. 32" 
               keyboardType="numeric" 
+              unit="yrs"
+              error={errors.age}
             />
 
             <View style={styles.row}>
@@ -100,9 +138,10 @@ export default function ProfileSetupScreen({ navigation }) {
                   label="Height" 
                   unit="cm"
                   value={height} 
-                  onChangeText={setHeight} 
+                  onChangeText={(t) => { setHeight(t); setErrors({...errors, height: ''}); }} 
                   placeholder="160" 
                   keyboardType="numeric" 
+                  error={errors.height}
                 />
               </View>
               <View style={{ flex: 1, marginLeft: 8 }}>
@@ -110,19 +149,19 @@ export default function ProfileSetupScreen({ navigation }) {
                   label="Weight" 
                   unit="kg"
                   value={weight} 
-                  onChangeText={setWeight} 
+                  onChangeText={(t) => { setWeight(t); setErrors({...errors, weight: ''}); }} 
                   placeholder="55" 
                   keyboardType="numeric" 
+                  error={errors.weight}
                 />
               </View>
             </View>
           </View>
 
+
           <TouchableOpacity 
             style={styles.nextButton}
-            onPress={() => navigation.navigate('ProfileSetupStep2', {
-              name, age, height, weight
-            })}
+            onPress={handleNext}
             activeOpacity={0.9}
           >
             <LinearGradient
@@ -269,12 +308,22 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
     backgroundColor: '#FFFFFF',
   },
+  inputWrapperError: {
+    borderColor: '#EF4444',
+  },
   input: {
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     color: theme.colors.text,
     fontFamily: 'PlusJakartaSans_500Medium',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    marginTop: 4,
+    marginLeft: 4,
   },
   row: {
     flexDirection: 'row',
