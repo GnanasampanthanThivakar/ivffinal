@@ -273,3 +273,48 @@ Total recommendations: 4
 2. Vitamin D (Day 2) - Impact: 1.82%
 3. Zinc - Impact: 1.67%
 4. Blood Pressure - Impact: 0.07%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 453.0, DBP: 58.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 5
+DEBUG: Checking Blood Pressure - Systolic: 453.0, Diastolic: 58.0
+DEBUG: Condition check - systolic_bp >= 140: True, diastolic_bp >= 90: False
+DEBUG: BP Rec created: {'nutrient': 'Blood Pressure', 'icon': 'BP', 'current': '453/58', 'target': '118/76', 'unit': 'mmHg', 'boost_percent': 0, 'impact': 14.42, 'food_tip': 'URGENT: Consult your doctor immediately. Reduce sodium (<1500mg/day), avoid caffeine, practice deep breathing, take prescribed medication. Monitor daily.', 'status': 'high'}
+DEBUG: Total recommendations after adding BP: 6
+==================== BP ADDED ====================
+
+
+==================== AFTER SORTING ====================
+Total recommendations: 6
+1. Blood Pressure - Impact: 14.42%
+2. Body Mass Index - Impact: 6.91%
+3. Vitamin B12 (Day 1) - Impact: 0.99%
+4. Vitamin D (Day 1) - Impact: 0.46%
+5. Folate - Impact: 0.18%
+6. Zinc - Impact: 0.17%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 0.0, DBP: 0.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 8
+DEBUG: Checking Blood Pressure - Systolic: 0.0, Diastolic: 0.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 9
+1. Zinc - Impact: 6.34%
+2. Folate - Impact: 4.89%
+3. Protein (Day 1) - Impact: 1.22%
+4. Vitamin B12 (Day 1) - Impact: 0.66%
+5. Protein (Day 2) - Impact: 0.52%
+6. Blood Pressure - Impact: 0.4%
+7. Vitamin B12 (Day 2) - Impact: 0.33%
+8. Vitamin D (Day 1) - Impact: 0.14%
+9. Vitamin D (Day 2) - Impact: 0.14%
