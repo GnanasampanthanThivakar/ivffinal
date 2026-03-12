@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { NUTRITION_PREDICT_URL } from '../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -76,18 +77,19 @@ const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 
 export default function NutritionInputScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [showHelpModal, setShowHelpModal] = useState(false);
+    const [showBmiHelp, setShowBmiHelp] = useState(false);
     const scrollRef = useRef(null);
 
     // 24 Feature State Management
     const [formData, setFormData] = useState({
-        age: '34', gender: '2', sbp: '118', dbp: '76',
-        chol: '185', sleep: '7.5', smoke: '2', bmi_cat: '2',
+        age: '', gender: '2', sbp: '', dbp: '',
+        chol: '', sleep: '', smoke: '2', bmi_cat: '',
         // Day 1
-        calories: '1850', protein: '75', carbs: '220', fat: '65',
-        vit_d: '12.5', vit_b12: '4.5', folate_d1: '330', zinc_d1: '9.5',
+        calories: '', protein: '', carbs: '', fat: '',
+        vit_d: '', vit_b12: '', folate_d1: '', zinc_d1: '',
         // Day 2
-        calories_d2: '1900', protein_d2: '80', carbs_d2: '230', fat_d2: '70',
-        folate_d2: '310', zinc_d2: '8.5', vit_d_d2: '11.0', vit_b12_d2: '5.0'
+        calories_d2: '', protein_d2: '', carbs_d2: '', fat_d2: '',
+        folate_d2: '', zinc_d2: '', vit_d_d2: '', vit_b12_d2: ''
     });
 
     const updateField = useCallback((name, value) => {
@@ -104,13 +106,25 @@ export default function NutritionInputScreen({ navigation }) {
 
             console.log("Sending Premium Payload:", payload);
 
-            const response = await fetch('http://127.0.0.1:8000/api/predict/nutrition_full', {
+            const response = await fetch(NUTRITION_PREDICT_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             const result = await response.json();
+
+            // DEBUG: Log API response
+            console.log('=== API RESPONSE ===');
+            console.log('Success:', result.success);
+            console.log('Recommendations count:', result.detailed_recommendations?.length || 0);
+            console.log('Recommendations:', result.detailed_recommendations?.map(r => r.nutrient).join(', ') || 'None');
+            const bpInResponse = result.detailed_recommendations?.find(r => r.nutrient === 'Blood Pressure');
+            if (bpInResponse) {
+                console.log('✓ BP in API response:', bpInResponse.current, '→', bpInResponse.target);
+            } else {
+                console.log('✗ NO BP in API response');
+            }
 
             if (result.success) {
                 // Use getParent to navigate to parent Stack Navigator
@@ -202,10 +216,10 @@ export default function NutritionInputScreen({ navigation }) {
                     <View style={styles.glassCard}>
                         <View style={styles.row}>
                             <View style={{ flex: 1.2, marginRight: 10 }}>
-                                <InputGroup label="Age" name="age" placeholder="34" value={formData.age} updateField={updateField} />
+                                <InputGroup label="Age" name="age" placeholder="e.g. 34" value={formData.age} updateField={updateField} />
                             </View>
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <InputGroup label="Sleep" name="sleep" unit="hrs" placeholder="7.5" value={formData.sleep} updateField={updateField} />
+                                <InputGroup label="Sleep" name="sleep" unit="hrs" placeholder="e.g. 7.5" value={formData.sleep} updateField={updateField} />
                             </View>
                         </View>
 
@@ -242,19 +256,39 @@ export default function NutritionInputScreen({ navigation }) {
 
                         <View style={styles.row}>
                             <View style={{ flex: 1, marginRight: 10 }}>
-                                <InputGroup label="Systolic" name="sbp" placeholder="118" value={formData.sbp} updateField={updateField} />
+                                <InputGroup label="Systolic" name="sbp" placeholder="e.g. 118" value={formData.sbp} updateField={updateField} />
                             </View>
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <InputGroup label="Diastolic" name="dbp" placeholder="76" value={formData.dbp} updateField={updateField} />
+                                <InputGroup label="Diastolic" name="dbp" placeholder="e.g. 76" value={formData.dbp} updateField={updateField} />
                             </View>
                         </View>
 
                         <View style={styles.row}>
                             <View style={{ flex: 1, marginRight: 10 }}>
-                                <InputGroup label="Cholesterol" name="chol" placeholder="185" value={formData.chol} updateField={updateField} />
+                                <InputGroup label="Cholesterol" name="chol" placeholder="e.g. 185" value={formData.chol} updateField={updateField} />
                             </View>
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <InputGroup label="BMI Cat" name="bmi_cat" placeholder="2" value={formData.bmi_cat} updateField={updateField} />
+                                <View style={styles.inputGroup}>
+                                    <View style={styles.labelWithHelp}>
+                                        <Text style={styles.label}>BMI Cat</Text>
+                                        <TouchableOpacity 
+                                            style={styles.bmiHelpButton}
+                                            onPress={() => setShowBmiHelp(true)}
+                                        >
+                                            <Text style={styles.bmiHelpIcon}>ⓘ</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={styles.inputWrapper}>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="e.g. 2"
+                                            placeholderTextColor="#94A3B8"
+                                            keyboardType="numeric"
+                                            value={formData.bmi_cat}
+                                            onChangeText={(text) => updateField('bmi_cat', text.replace(/[^0-9]/g, ''))}
+                                        />
+                                    </View>
+                                </View>
                             </View>
                         </View>
                     </View>
@@ -269,16 +303,16 @@ export default function NutritionInputScreen({ navigation }) {
                     <Text style={styles.dayLabel}>Protocol Day 01</Text>
                     <View style={styles.glassCard}>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Calories" name="calories" unit="kcal" value={formData.calories} updateField={updateField} /></View>
-                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Protein" name="protein" unit="g" value={formData.protein} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Calories" name="calories" unit="kcal" placeholder="e.g. 1850" value={formData.calories} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Protein" name="protein" unit="g" placeholder="e.g. 75" value={formData.protein} updateField={updateField} /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Carbs" name="carbs" unit="g" value={formData.carbs} updateField={updateField} /></View>
-                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Fat" name="fat" unit="g" value={formData.fat} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Carbs" name="carbs" unit="g" placeholder="e.g. 220" value={formData.carbs} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Fat" name="fat" unit="g" placeholder="e.g. 65" value={formData.fat} updateField={updateField} /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D1" name="folate_d1" unit="mcg" value={formData.folate_d1} updateField={updateField} /></View>
-                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Zinc D1" name="zinc_d1" unit="mg" value={formData.zinc_d1} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D1" name="folate_d1" unit="mcg" placeholder="e.g. 330" value={formData.folate_d1} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Zinc D1" name="zinc_d1" unit="mg" placeholder="e.g. 9.5" value={formData.zinc_d1} updateField={updateField} /></View>
                         </View>
                     </View>
 
@@ -286,16 +320,16 @@ export default function NutritionInputScreen({ navigation }) {
                     <Text style={styles.dayLabel}>Protocol Day 02</Text>
                     <View style={styles.glassCard}>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Calories" name="calories_d2" unit="kcal" value={formData.calories_d2} updateField={updateField} /></View>
-                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Protein" name="protein_d2" unit="g" value={formData.protein_d2} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Calories" name="calories_d2" unit="kcal" placeholder="e.g. 1900" value={formData.calories_d2} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Protein" name="protein_d2" unit="g" placeholder="e.g. 80" value={formData.protein_d2} updateField={updateField} /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D2" name="folate_d2" unit="mcg" value={formData.folate_d2} updateField={updateField} /></View>
-                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Zinc D2" name="zinc_d2" unit="mg" value={formData.zinc_d2} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Folate D2" name="folate_d2" unit="mcg" placeholder="e.g. 310" value={formData.folate_d2} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Zinc D2" name="zinc_d2" unit="mg" placeholder="e.g. 8.5" value={formData.zinc_d2} updateField={updateField} /></View>
                         </View>
                         <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Vit D" name="vit_d_d2" unit="mcg" value={formData.vit_d_d2} updateField={updateField} /></View>
-                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Vit B12" name="vit_b12_d2" unit="mcg" value={formData.vit_b12_d2} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginRight: 10 }}><InputGroup label="Vit D" name="vit_d_d2" unit="mcg" placeholder="e.g. 11.0" value={formData.vit_d_d2} updateField={updateField} /></View>
+                            <View style={{ flex: 1, marginLeft: 10 }}><InputGroup label="Vit B12" name="vit_b12_d2" unit="mcg" placeholder="e.g. 5.0" value={formData.vit_b12_d2} updateField={updateField} /></View>
                         </View>
                     </View>
 
@@ -503,6 +537,81 @@ export default function NutritionInputScreen({ navigation }) {
 
                             <View style={{ height: 20 }} />
                         </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* BMI Category Help Modal */}
+            <Modal
+                visible={showBmiHelp}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setShowBmiHelp(false)}
+            >
+                <View style={styles.bmiModalOverlay}>
+                    <View style={styles.bmiModalContainer}>
+                        <View style={styles.bmiModalHeader}>
+                            <Text style={styles.bmiModalTitle}>📏 BMI Category Guide</Text>
+                            <TouchableOpacity
+                                style={styles.modalCloseButton}
+                                onPress={() => setShowBmiHelp(false)}
+                            >
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.bmiCategoryList}>
+                            <View style={[styles.bmiCategoryItem, { backgroundColor: '#EFF6FF' }]}>
+                                <View style={styles.bmiCatNumber}>
+                                    <Text style={styles.bmiCatNumberText}>1</Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.bmiCatLabel}>Underweight</Text>
+                                    <Text style={styles.bmiCatRange}>BMI &lt; 18.5</Text>
+                                </View>
+                            </View>
+
+                            <View style={[styles.bmiCategoryItem, { backgroundColor: '#F0FDF4' }]}>
+                                <View style={[styles.bmiCatNumber, { backgroundColor: '#10B981' }]}>
+                                    <Text style={styles.bmiCatNumberText}>2</Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.bmiCatLabel}>Normal Weight</Text>
+                                    <Text style={styles.bmiCatRange}>BMI 18.5 - 24.9</Text>
+                                </View>
+                            </View>
+
+                            <View style={[styles.bmiCategoryItem, { backgroundColor: '#FEF3C7' }]}>
+                                <View style={[styles.bmiCatNumber, { backgroundColor: '#F59E0B' }]}>
+                                    <Text style={styles.bmiCatNumberText}>3</Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.bmiCatLabel}>Overweight</Text>
+                                    <Text style={styles.bmiCatRange}>BMI 25.0 - 29.9</Text>
+                                </View>
+                            </View>
+
+                            <View style={[styles.bmiCategoryItem, { backgroundColor: '#FEE2E2' }]}>
+                                <View style={[styles.bmiCatNumber, { backgroundColor: '#EF4444' }]}>
+                                    <Text style={styles.bmiCatNumberText}>4</Text>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.bmiCatLabel}>Obese</Text>
+                                    <Text style={styles.bmiCatRange}>BMI ≥ 30.0</Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        <View style={styles.bmiCalculatorTip}>
+                            <Text style={styles.bmiCalculatorText}>💡 Calculate your BMI: Weight (kg) ÷ Height² (m)</Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.bmiCloseButton}
+                            onPress={() => setShowBmiHelp(false)}
+                        >
+                            <Text style={styles.bmiCloseButtonText}>Got it!</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -869,5 +978,113 @@ const styles = StyleSheet.create({
         color: '#92400E',
         lineHeight: 18,
         textAlign: 'center',
+    },
+    labelWithHelp: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    bmiHelpButton: {
+        marginLeft: 6,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#0D9488',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    bmiHelpIcon: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    bmiModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    bmiModalContainer: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 24,
+        width: '100%',
+        maxWidth: 400,
+    },
+    bmiModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    bmiModalTitle: {
+        fontSize: 20,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: theme.colors.text,
+        flex: 1,
+    },
+    bmiCategoryList: {
+        gap: 12,
+        marginBottom: 20,
+    },
+    bmiCategoryItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    bmiCatNumber: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#3B82F6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+    },
+    bmiCatNumberText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    bmiCatLabel: {
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: theme.colors.text,
+        marginBottom: 2,
+    },
+    bmiCatRange: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#64748B',
+    },
+    bmiCalculatorTip: {
+        backgroundColor: '#F8FAFC',
+        padding: 14,
+        borderRadius: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    bmiCalculatorText: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#475569',
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+    bmiCloseButton: {
+        backgroundColor: '#0D9488',
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    bmiCloseButtonText: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontFamily: 'PlusJakartaSans_700Bold',
     }
 });

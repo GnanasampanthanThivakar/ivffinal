@@ -1,0 +1,275 @@
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 145.0, DBP: 95.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 6
+DEBUG: Checking Blood Pressure - Systolic: 145.0, Diastolic: 95.0
+DEBUG: Condition check - systolic_bp >= 140: True, diastolic_bp >= 90: True
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 145.0, DBP: 95.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 6
+DEBUG: Checking Blood Pressure - Systolic: 145.0, Diastolic: 95.0
+DEBUG: Condition check - systolic_bp >= 140: True, diastolic_bp >= 90: True
+DEBUG: BP Rec created: {'nutrient': 'Blood Pressure', 'icon': 'BP', 'current': '145/95', 'target': '118/76', 'unit': 'mmHg', 'boost_percent': 0, 'impact': 12.11, 'food_tip': 'URGENT: Consult your doctor immediately. Reduce sodium (<1500mg/day), avoid caffeine, practice deep breathing, take prescribed medication. Monitor daily.', 'status': 'high'}
+DEBUG: Total recommendations after adding BP: 7
+==================== BP ADDED ====================
+
+
+==================== AFTER SORTING ====================
+Total recommendations: 7
+1. Blood Pressure - Impact: 12.11%
+2. Folate - Impact: 9.42%
+3. Vitamin D (Day 2) - Impact: 3.76%
+4. Folate (Day 2) - Impact: 3.37%
+5. Zinc - Impact: 2.58%
+6. Zinc (Day 2) - Impact: 2.14%
+7. Vitamin D (Day 1) - Impact: 0.38%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 180.0, DBP: 90.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 3
+DEBUG: Checking Blood Pressure - Systolic: 180.0, Diastolic: 90.0
+DEBUG: Condition check - systolic_bp >= 140: True, diastolic_bp >= 90: True
+DEBUG: BP Rec created: {'nutrient': 'Blood Pressure', 'icon': 'BP', 'current': '180/90', 'target': '118/76', 'unit': 'mmHg', 'boost_percent': 0, 'impact': 6.23, 'food_tip': 'URGENT: Consult your doctor immediately. Reduce sodium (<1500mg/day), avoid caffeine, practice deep breathing, take prescribed medication. Monitor daily.', 'status': 'high'}
+DEBUG: Total recommendations after adding BP: 4
+==================== BP ADDED ====================
+
+
+==================== AFTER SORTING ====================
+Total recommendations: 4
+1. Body Mass Index - Impact: 29.42%
+2. Blood Pressure - Impact: 6.23%
+3. Zinc - Impact: 1.27%
+4. Vitamin D (Day 2) - Impact: 1.26%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 120.0, DBP: 76.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 4
+DEBUG: Checking Blood Pressure - Systolic: 120.0, Diastolic: 76.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 4
+1. Body Mass Index - Impact: 40.81%
+2. Zinc - Impact: 2.98%
+3. Vitamin D (Day 2) - Impact: 2.42%
+4. Zinc (Day 2) - Impact: 1.22%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 90.0, DBP: 76.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 5
+DEBUG: Checking Blood Pressure - Systolic: 90.0, Diastolic: 76.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 5
+1. Body Mass Index - Impact: 43.58%
+2. Vitamin D (Day 1) - Impact: 1.81%
+3. Zinc - Impact: 1.8%
+4. Vitamin D (Day 2) - Impact: 1.76%
+5. Zinc (Day 2) - Impact: 1.37%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 85.0, DBP: 55.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 7
+DEBUG: Checking Blood Pressure - Systolic: 85.0, Diastolic: 55.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 8
+1. Folate - Impact: 4.8%
+2. Zinc - Impact: 2.08%
+3. Vitamin D (Day 1) - Impact: 1.96%
+4. Sleep Duration - Impact: 1.54%
+5. Vitamin D (Day 2) - Impact: 0.88%
+6. Zinc (Day 2) - Impact: 0.45%
+7. Folate (Day 2) - Impact: 0.3%
+8. Blood Pressure - Impact: -9.28%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 110.0, DBP: 50.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 5
+DEBUG: Checking Blood Pressure - Systolic: 110.0, Diastolic: 50.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 6
+1. Folate - Impact: 3.54%
+2. Zinc - Impact: 1.79%
+3. Sleep Duration - Impact: 1.13%
+4. Folate (Day 2) - Impact: 0.82%
+5. Zinc (Day 2) - Impact: 0.66%
+6. Blood Pressure - Impact: -17.7%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 85.0, DBP: 55.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 7
+DEBUG: Checking Blood Pressure - Systolic: 85.0, Diastolic: 55.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 8
+1. Blood Pressure - Impact: 9.28%
+2. Folate - Impact: 4.8%
+3. Zinc - Impact: 2.08%
+4. Vitamin D (Day 1) - Impact: 1.96%
+5. Sleep Duration - Impact: 1.54%
+6. Vitamin D (Day 2) - Impact: 0.88%
+7. Zinc (Day 2) - Impact: 0.45%
+8. Folate (Day 2) - Impact: 0.3%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 110.0, DBP: 50.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 5
+DEBUG: Checking Blood Pressure - Systolic: 110.0, Diastolic: 50.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 6
+1. Blood Pressure - Impact: 17.7%
+2. Folate - Impact: 3.54%
+3. Zinc - Impact: 1.79%
+4. Sleep Duration - Impact: 1.13%
+5. Folate (Day 2) - Impact: 0.82%
+6. Zinc (Day 2) - Impact: 0.66%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 155.0, DBP: 100.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 6
+DEBUG: Checking Blood Pressure - Systolic: 155.0, Diastolic: 100.0
+DEBUG: Condition check - systolic_bp >= 140: True, diastolic_bp >= 90: True
+DEBUG: BP Rec created: {'nutrient': 'Blood Pressure', 'icon': 'BP', 'current': '155/100', 'target': '118/76', 'unit': 'mmHg', 'boost_percent': 0, 'impact': 16.71, 'food_tip': 'URGENT: Consult your doctor immediately. Reduce sodium (<1500mg/day), avoid caffeine, practice deep breathing, take prescribed medication. Monitor daily.', 'status': 'high'}
+DEBUG: Total recommendations after adding BP: 7
+==================== BP ADDED ====================
+
+
+==================== AFTER SORTING ====================
+Total recommendations: 7
+1. Blood Pressure - Impact: 16.71%
+2. Folate - Impact: 8.55%
+3. Folate (Day 2) - Impact: 3.37%
+4. Vitamin D (Day 2) - Impact: 2.87%
+5. Zinc - Impact: 2.35%
+6. Zinc (Day 2) - Impact: 2.15%
+7. Sleep Duration - Impact: 0.28%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 90.0, DBP: 76.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 5
+DEBUG: Checking Blood Pressure - Systolic: 90.0, Diastolic: 76.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 5
+1. Body Mass Index - Impact: 43.58%
+2. Vitamin D (Day 1) - Impact: 1.81%
+3. Zinc - Impact: 1.8%
+4. Vitamin D (Day 2) - Impact: 1.76%
+5. Zinc (Day 2) - Impact: 1.37%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 145.0, DBP: 95.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 6
+DEBUG: Checking Blood Pressure - Systolic: 145.0, Diastolic: 95.0
+DEBUG: Condition check - systolic_bp >= 140: True, diastolic_bp >= 90: True
+DEBUG: BP Rec created: {'nutrient': 'Blood Pressure', 'icon': 'BP', 'current': '145/95', 'target': '118/76', 'unit': 'mmHg', 'boost_percent': 0, 'impact': 12.11, 'food_tip': 'URGENT: Consult your doctor immediately. Reduce sodium (<1500mg/day), avoid caffeine, practice deep breathing, take prescribed medication. Monitor daily.', 'status': 'high'}
+DEBUG: Total recommendations after adding BP: 7
+==================== BP ADDED ====================
+
+
+==================== AFTER SORTING ====================
+Total recommendations: 7
+1. Blood Pressure - Impact: 12.11%
+2. Folate - Impact: 9.42%
+3. Vitamin D (Day 2) - Impact: 3.76%
+4. Folate (Day 2) - Impact: 3.37%
+5. Zinc - Impact: 2.58%
+6. Zinc (Day 2) - Impact: 2.14%
+7. Vitamin D (Day 1) - Impact: 0.38%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 90.0, DBP: 76.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 5
+DEBUG: Checking Blood Pressure - Systolic: 90.0, Diastolic: 76.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 5
+1. Body Mass Index - Impact: 43.58%
+2. Vitamin D (Day 1) - Impact: 1.81%
+3. Zinc - Impact: 1.8%
+4. Vitamin D (Day 2) - Impact: 1.76%
+5. Zinc (Day 2) - Impact: 1.37%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 180.0, DBP: 76.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 3
+DEBUG: Checking Blood Pressure - Systolic: 180.0, Diastolic: 76.0
+DEBUG: Condition check - systolic_bp >= 140: True, diastolic_bp >= 90: False
+DEBUG: BP Rec created: {'nutrient': 'Blood Pressure', 'icon': 'BP', 'current': '180/76', 'target': '118/76', 'unit': 'mmHg', 'boost_percent': 0, 'impact': 0.07, 'food_tip': 'URGENT: Consult your doctor immediately. Reduce sodium (<1500mg/day), avoid caffeine, practice deep breathing, take prescribed medication. Monitor daily.', 'status': 'high'}
+DEBUG: Total recommendations after adding BP: 4
+==================== BP ADDED ====================
+
+
+==================== AFTER SORTING ====================
+Total recommendations: 4
+1. Body Mass Index - Impact: 34.74%
+2. Vitamin D (Day 2) - Impact: 1.82%
+3. Zinc - Impact: 1.67%
+4. Blood Pressure - Impact: 0.07%
