@@ -25,12 +25,60 @@ export default function NutritionResultScreen({ navigation, route }) {
         detailedRecommendations = []
     } = params;
 
+    // DEBUG: Log received recommendations
+    console.log('=== NUTRITION RESULT SCREEN ===');
+    console.log('Total recommendations received:', detailedRecommendations.length);
+    console.log('Recommendations:', detailedRecommendations.map(r => r.nutrient).join(', '));
+    const bpRec = detailedRecommendations.find(r => r.nutrient === 'Blood Pressure');
+    if (bpRec) {
+        console.log('✓ BP FOUND:', bpRec.current, '→', bpRec.target, 'Impact:', bpRec.impact + '%');
+    } else {
+        console.log('✗ NO Blood Pressure recommendation found');
+    }
+
     const getStatusColor = (status) => {
-        return status === 'deficient' ? '#EF4444' : '#F59E0B';
+        if (status === 'deficient' || status === 'low') return '#EF4444';
+        if (status === 'elevated' || status === 'high') return '#F59E0B';
+        return '#94A3B8';
     };
 
     const getStatusLabel = (status) => {
-        return status === 'deficient' ? 'Below Target' : 'Above Target';
+        if (status === 'deficient') return 'Below Target';
+        if (status === 'elevated') return 'Above Target';
+        if (status === 'low') return 'Too Low';
+        if (status === 'high') return 'Too High';
+        return 'Needs Attention';
+    };
+
+    const getBMICategoryName = (catNum) => {
+        const catMap = {
+            1: 'Underweight',
+            2: 'Normal',
+            3: 'Overweight',
+            4: 'Obese'
+        };
+        return catMap[catNum] || catNum.toString();
+    };
+
+    const formatValue = (rec) => {
+        // Special formatting for BMI categories
+        if (rec.nutrient === 'Body Mass Index' && rec.unit === 'category') {
+            return {
+                current: getBMICategoryName(rec.current),
+                target: getBMICategoryName(rec.target)
+            };
+        }
+        // Special formatting for Blood Pressure (already includes unit in value)
+        if (rec.nutrient === 'Blood Pressure' && typeof rec.current === 'string' && rec.current.includes('/')) {
+            return {
+                current: `${rec.current} ${rec.unit}`,
+                target: `${rec.target} ${rec.unit}`
+            };
+        }
+        return {
+            current: `${rec.current} ${rec.unit}`,
+            target: `${rec.target} ${rec.unit}`
+        };
     };
 
     return (
@@ -107,7 +155,9 @@ export default function NutritionResultScreen({ navigation, route }) {
                             <Text style={styles.sectionHeader}>Personalized Interventions</Text>
                         </View>
 
-                        {detailedRecommendations.map((rec, index) => (
+                        {detailedRecommendations.map((rec, index) => {
+                            const formattedValues = formatValue(rec);
+                            return (
                             <View key={index} style={styles.recommendationCard}>
                                 <View style={styles.recHeader}>
                                     <View style={styles.iconCircle}>
@@ -123,7 +173,9 @@ export default function NutritionResultScreen({ navigation, route }) {
                                         </View>
                                     </View>
                                     <View style={styles.impactChip}>
-                                        <Text style={styles.impactChipText}>+{rec.impact}%</Text>
+                                        <Text style={styles.impactChipText}>
+                                            {rec.impact > 0 ? '+' : ''}{rec.impact}%
+                                        </Text>
                                     </View>
                                 </View>
                                 
@@ -131,12 +183,12 @@ export default function NutritionResultScreen({ navigation, route }) {
                                     <View style={styles.valuesRow}>
                                         <View style={styles.valueBox}>
                                             <Text style={styles.valueLabel}>Current</Text>
-                                            <Text style={[styles.valueNum, { color: '#EF4444' }]}>{rec.current} {rec.unit}</Text>
+                                            <Text style={[styles.valueNum, { color: '#EF4444' }]}>{formattedValues.current}</Text>
                                         </View>
                                         <Text style={styles.arrow}>→</Text>
                                         <View style={styles.valueBox}>
                                             <Text style={styles.valueLabel}>Target</Text>
-                                            <Text style={[styles.valueNum, { color: '#10B981' }]}>{rec.target} {rec.unit}</Text>
+                                            <Text style={[styles.valueNum, { color: '#10B981' }]}>{formattedValues.target}</Text>
                                         </View>
                                     </View>
                                 </View>
@@ -146,7 +198,7 @@ export default function NutritionResultScreen({ navigation, route }) {
                                     <Text style={styles.foodTipText}>{rec.food_tip}</Text>
                                 </View>
                             </View>
-                        ))}
+                        )})}
                     </>
                 )}
 
@@ -179,16 +231,9 @@ export default function NutritionResultScreen({ navigation, route }) {
 
                 <TouchableOpacity
                     style={styles.primaryButton}
-                    onPress={() => navigation.navigate('WellnessHome')}
-                >
-                    <Text style={styles.primaryButtonText}>Sync to Health Profile</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.secondaryButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Text style={styles.secondaryButtonText}>Modify Input Data</Text>
+                    <Text style={styles.primaryButtonText}>Modify Input Data</Text>
                 </TouchableOpacity>
 
                 <View style={{ height: 60 }} />
