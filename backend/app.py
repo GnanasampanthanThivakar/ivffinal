@@ -132,25 +132,59 @@ def predict_ivf(data: IVFInput):
         raise HTTPException(status_code=500, detail="Original Model or Scaler not loaded.")
     
     try:
-        # Prepare data for prediction (7 features)
-        input_data = np.array([[
-            data.age, data.bmi, data.amh_level, data.prior_sab,
-            data.d3_cell_count, data.d3_fragmentation, data.calculated_velocity
-        ]])
+        # Smart Fragmentation Mapping: Handles both Grade (0-4) and Percentage (5-100)
+        frag_input = data.d3_fragmentation
+        if frag_input <= 4:
+            # If input is 4 or less, assume it's already a clinical grade (None, <10, 10-25, 25-50, >50)
+            frag_grade = int(frag_input)
+        else:
+            # If input is >4, treat as Percentage and map to Grade
+            if frag_input < 10:
+                frag_grade = 1
+            elif frag_input <= 25:
+                frag_grade = 2
+            elif frag_input <= 50:
+                frag_grade = 3
+            else:
+                frag_grade = 4
+
+        # Prepare data for prediction using exact feature names expected by the model
+        input_data = {
+            'Patient_Age': data.age,
+            'Producer_BMI': data.bmi,
+            'AMH': data.amh_level,
+            'Prior_SAB': data.prior_sab,
+            'Fresh_D3_Cnum': data.d3_cell_count,
+            'Fresh_D3_Fr': frag_grade,
+            'E2_Velocity': data.calculated_velocity
+        }
+        
+        # Create DataFrame
+        df_input = pd.DataFrame([input_data])
+        
+        # Align columns with scaler expectations
+        if hasattr(scaler, 'feature_names_in_'):
+            df_input = df_input[scaler.feature_names_in_]
         
         # Scale the data
-        scaled_data = scaler.transform(input_data)
+        scaled_data = scaler.transform(df_input)
         
         # Predict probability
         # [0][1] gets probability of class 1 (success)
         prediction_prob = model.predict_proba(scaled_data)[0][1]
         
+        # Determine clinical status
+        status = "Success" if prediction_prob >= 0.5 else "Failure"
+        
         return {
             "success": True,
+            "status": status,
             "prediction": round(float(prediction_prob * 100), 2),
-            "success_probability_percentage": round(float(prediction_prob * 100), 2)
+            "success_probability_percentage": round(float(prediction_prob * 100), 2),
+            "failure_risk_percentage": round(float((1 - prediction_prob) * 100), 2)
         }
     except Exception as e:
+        print(f"Prediction Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 # --- CLINICAL REFERENCE RANGES FOR SMART RECOMMENDATIONS ---
@@ -253,6 +287,13 @@ def predict_nutrition_full(data: NutritionFullInput):
         # Test each modifiable nutrient individually
         recommendations = []
         
+        # DEBUG: Log function start
+        with open('bp_debug.log', 'a') as f:
+            f.write(f"\n{'='*60}\n")
+            f.write(f"FUNCTION START - Recommendation Engine\n")
+            f.write(f"Input SBP: {df_imputed['Systolic_Blood_Pressure'].iloc[0]}, DBP: {df_imputed['Diastolic_Blood_Pressure'].iloc[0]}\n")
+            f.write(f"{'='*60}\n")
+        
         # --- Nutrients where HIGHER is better ---
         for col, info in CLINICAL_TARGETS.items():
             current_val = float(df_imputed[col].iloc[0])
@@ -308,8 +349,172 @@ def predict_nutrition_full(data: NutritionFullInput):
                         "status": "elevated"
                     })
         
+        # --- BMI Category Analysis ---
+        bmi_cat_value = float(df_imputed['BMI_Category'].iloc[0])
+        
+        if bmi_cat_value == 1:  # Underweight
+            # Simulate moving to Normal BMI (category 2)
+            df_sim = df_imputed.copy()
+            df_sim['BMI_Category'] = 2.0
+            prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+            impact = prob_sim - prob_baseline
+            
+            if abs(impact) > 0.1:
+                recommendations.append({
+                    "nutrient": "Body Mass Index",
+                    "icon": "⚖️",
+                    "current": 1,
+                    "target": 2,
+                    "unit": "category",
+                    "boost_percent": 0,
+                    "impact": round(impact, 2),
+                    "food_tip": "Increase calorie intake with nutrient-dense foods: nuts, avocados, whole grains, lean proteins. Consider 3 meals + 2-3 healthy snacks daily.",
+                    "status": "low"
+                })
+        
+        elif bmi_cat_value == 3:  # Overweight
+            # Simulate moving to Normal BMI (category 2)
+            df_sim = df_imputed.copy()
+            df_sim['BMI_Category'] = 2.0
+            prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+            impact = prob_sim - prob_baseline
+            
+            if abs(impact) > 0.1:
+                recommendations.append({
+                    "nutrient": "Body Mass Index",
+                    "icon": "⚖️",
+                    "current": 3,
+                    "target": 2,
+                    "unit": "category",
+                    "boost_percent": 0,
+                    "impact": round(impact, 2),
+                    "food_tip": "Reduce portion sizes, increase vegetables, prioritize lean proteins, limit processed foods. Regular exercise (30 min/day) can help.",
+                    "status": "high"
+                })
+        
+        elif bmi_cat_value == 4:  # Obese
+            # Simulate moving to Normal BMI (category 2)
+            df_sim = df_imputed.copy()
+            df_sim['BMI_Category'] = 2.0
+            prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+            impact = prob_sim - prob_baseline
+            
+            if abs(impact) > 0.1:
+                recommendations.append({
+                    "nutrient": "Body Mass Index",
+                    "icon": "⚖️",
+                    "current": 4,
+                    "target": 2,
+                    "unit": "category",
+                    "boost_percent": 0,
+                    "impact": round(impact, 2),
+                    "food_tip": "Consult a nutritionist for personalized weight loss plan. Focus on whole foods, portion control, and consistent physical activity. Even 5-10% weight loss can improve fertility.",
+                    "status": "high"
+                })
+        
+        # BMI Category 2 (Normal) - no recommendation needed, it's optimal
+        
+        # Debug log file
+        with open('bp_debug.log', 'a') as f:
+            f.write(f"\n==================== BLOOD PRESSURE CHECK ====================\n")
+            f.write(f"Total recommendations before BP check: {len(recommendations)}\n")
+        
+        # --- Blood Pressure Analysis ---
+        systolic_bp = float(df_imputed['Systolic_Blood_Pressure'].iloc[0])
+        diastolic_bp = float(df_imputed['Diastolic_Blood_Pressure'].iloc[0])
+        
+        with open('bp_debug.log', 'a') as f:
+            f.write(f"DEBUG: Checking Blood Pressure - Systolic: {systolic_bp}, Diastolic: {diastolic_bp}\n")
+            f.write(f"DEBUG: Condition check - systolic_bp >= 140: {systolic_bp >= 140}, diastolic_bp >= 90: {diastolic_bp >= 90}\n")
+        
+        # Blood Pressure Categories (AHA Guidelines):
+        # Normal: < 120/80
+        # Elevated: 120-129/<80
+        # Hypertension Stage 1: 130-139/80-89
+        # Hypertension Stage 2: >=140/>=90
+        # Hypotension: <90/<60
+        
+        # Check for HIGH Blood Pressure
+        if systolic_bp >= 140 or diastolic_bp >= 90:
+            print(f"DEBUG: HIGH BP detected - Adding recommendation")
+            # Stage 2 Hypertension - Urgent
+            df_sim = df_imputed.copy()
+            df_sim['Systolic_Blood_Pressure'] = 118.0
+            df_sim['Diastolic_Blood_Pressure'] = 76.0
+            prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+            impact = prob_sim - prob_baseline
+            
+            bp_rec = {
+                "nutrient": "Blood Pressure",
+                "icon": "BP",
+                "current": f"{int(systolic_bp)}/{int(diastolic_bp)}",
+                "target": "118/76",
+                "unit": "mmHg",
+                "boost_percent": 0,
+                "impact": abs(round(impact, 2)) if abs(impact) > 0.05 else 0.5,
+                "food_tip": "URGENT: Consult your doctor immediately. Reduce sodium (<1500mg/day), avoid caffeine, practice deep breathing, take prescribed medication. Monitor daily.",
+                "status": "high"
+            }
+            with open('bp_debug.log', 'a') as f:
+                f.write(f"DEBUG: BP Rec created: {bp_rec}\n")
+            recommendations.append(bp_rec)
+            with open('bp_debug.log', 'a') as f:
+                f.write(f"DEBUG: Total recommendations after adding BP: {len(recommendations)}\n")
+                f.write(f"==================== BP ADDED ====================\n\n")
+        
+        elif systolic_bp >= 130 or diastolic_bp >= 80:
+            # Stage 1 Hypertension or Elevated
+            df_sim = df_imputed.copy()
+            df_sim['Systolic_Blood_Pressure'] = 118.0
+            df_sim['Diastolic_Blood_Pressure'] = 76.0
+            prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+            impact = prob_sim - prob_baseline
+            
+            recommendations.append({
+                "nutrient": "Blood Pressure",
+                "icon": "BP",
+                "current": f"{int(systolic_bp)}/{int(diastolic_bp)}",
+                "target": "118/76",
+                "unit": "mmHg",
+                "boost_percent": 0,
+                "impact": abs(round(impact, 2)) if abs(impact) > 0.05 else 0.3,
+                "food_tip": "Moderately elevated. See doctor for evaluation. Reduce salt, increase potassium (bananas, spinach), exercise 30 min/day, manage stress, limit alcohol.",
+                "status": "elevated"
+            })
+        
+        # Check for LOW Blood Pressure (Hypotension)
+        elif systolic_bp < 90 or diastolic_bp < 60:
+            df_sim = df_imputed.copy()
+            df_sim['Systolic_Blood_Pressure'] = 118.0
+            df_sim['Diastolic_Blood_Pressure'] = 76.0
+            prob_sim = float(model_24.predict_proba(df_sim)[0][1] * 100)
+            impact = prob_sim - prob_baseline
+            
+            recommendations.append({
+                "nutrient": "Blood Pressure",
+                "icon": "BP",
+                "current": f"{int(systolic_bp)}/{int(diastolic_bp)}",
+                "target": "118/76",
+                "unit": "mmHg",
+                "boost_percent": 0,
+                "impact": abs(round(impact, 2)) if abs(impact) > 0.05 else 0.4,
+                "food_tip": "Low blood pressure detected. Consult doctor if experiencing dizziness. Increase fluid intake, eat small frequent meals, add more salt if advised, wear compression stockings.",
+                "status": "low"
+            })
+        
         # Sort by impact (highest first)
         recommendations.sort(key=lambda x: x['impact'], reverse=True)
+        
+        with open('bp_debug.log', 'a') as f:
+            f.write(f"\n==================== AFTER SORTING ====================\n")
+            f.write(f"Total recommendations: {len(recommendations)}\n")
+            for i, rec in enumerate(recommendations):
+                f.write(f"{i+1}. {rec['nutrient']} - Impact: {rec['impact']}%\n")
+        
+        # Ensure critical health warnings (BP, BMI) appear first
+        critical_recs = [r for r in recommendations if r['nutrient'] in ['Blood Pressure', 'Body Mass Index']]
+        other_recs = [r for r in recommendations if r['nutrient'] not in ['Blood Pressure', 'Body Mass Index']]
+        recommendations = critical_recs + other_recs
         
         # 4. Combined optimized prediction (apply ALL recommendations at once)
         df_optimized = df_imputed.copy()
@@ -338,7 +543,7 @@ def predict_nutrition_full(data: NutritionFullInput):
             "optimized_probability": round(prob_optimized, 2),
             "impact_score": round(total_impact, 2),
             "recommendation": summary,
-            "detailed_recommendations": recommendations[:6]  # Top 6
+            "detailed_recommendations": recommendations[:8]  # Top 8 (includes critical health warnings)
         }
     except Exception as e:
         print(f"ERROR: {str(e)}")

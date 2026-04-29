@@ -9,10 +9,71 @@ import {
   TextInput,
   Switch,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+
+
+const GradeSelector = ({ label, selectedGrade, onSelect, error }) => {
+  const grades = [
+    { value: 0, label: 'None', sub: 'G0' },
+    { value: 1, label: '<10%', sub: 'G1' },
+    { value: 2, label: '10-25%', sub: 'G2' },
+    { value: 3, label: '25-50%', sub: 'G3' },
+    { value: 4, label: '>50%', sub: 'G4' },
+  ];
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.gradeGrid}>
+        {grades.map((g) => (
+          <TouchableOpacity 
+            key={g.value}
+            style={[
+              styles.gradeButton,
+              selectedGrade === g.value && styles.gradeButtonSelected,
+              error && !selectedGrade && selectedGrade !== 0 && styles.gradeButtonError
+            ]}
+            onPress={() => onSelect(g.value)}
+          >
+            <Text style={[styles.gradeLabel, selectedGrade === g.value && styles.gradeLabelSelected]}>{g.label}</Text>
+            <Text style={[styles.gradeSub, selectedGrade === g.value && styles.gradeSubSelected]}>{g.sub}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+};
+
+const InputGroup = ({ label, value, onChangeText, placeholder, unit, keyboardType = 'numeric', helperText, error }) => {
+  const [isFocused, setIsFocused] = useState(false);
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+      <View style={[
+        styles.inputWrapper, 
+        isFocused && styles.inputWrapperFocused,
+        error && styles.inputWrapperError
+      ]}>
+        <TextInput 
+          style={styles.input} 
+          placeholder={placeholder}
+          placeholderTextColor="#94A3B8"
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+        />
+      </View>
+      {error ? <Text style={styles.errorText}>{error}</Text> : (helperText && <Text style={styles.helperText}>{helperText}</Text>)}
+    </View>
+  );
+};
 
 export default function ProfileSetupStep2Screen({ navigation, route }) {
   const step1Data = route.params || {};
@@ -22,11 +83,12 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
   const [eggsRetrieved, setEggsRetrieved] = useState('');
   const [priorSAB, setPriorSAB] = useState('');
   const [freshD3CellCount, setFreshD3CellCount] = useState('');
-  const [freshD3Fragmentation, setFreshD3Fragmentation] = useState('');
+  const [freshD3Fragmentation, setFreshD3Fragmentation] = useState(null);
   const [day2E2, setDay2E2] = useState('');
   const [triggerDayE2, setTriggerDayE2] = useState('');
   const [stimulationDays, setStimulationDays] = useState('');
   const [calculatedVelocity, setCalculatedVelocity] = useState('0.00');
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     const d2 = parseFloat(day2E2);
@@ -40,40 +102,60 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
     }
   }, [day2E2, triggerDayE2, stimulationDays]);
 
-  const handleNext = () => {
-    navigation.navigate('ProfileSetupStep3', {
-        ...step1Data,
-        amhLevel,
-        previousIVF,
-        eggsRetrieved,
-        priorSAB,
-        freshD3CellCount,
-        freshD3Fragmentation,
-        calculatedVelocity
-    });
+  const validate = () => {
+    let newErrors = {};
+    
+    const amh = parseFloat(amhLevel);
+    if (amhLevel === '') newErrors.amh = "Required field";
+    else if (isNaN(amh) || amh < 0 || amh > 50) newErrors.amh = "Must be 0-50";
+
+    const sab = parseInt(priorSAB);
+    if (priorSAB === '') newErrors.sab = "Required field";
+    else if (isNaN(sab) || sab < 0 || sab > 20) newErrors.sab = "Must be 0-20";
+
+    const cells = parseInt(freshD3CellCount);
+    if (freshD3CellCount === '') newErrors.cells = "Required field";
+    else if (isNaN(cells) || cells < 0 || cells > 50) newErrors.cells = "Must be 0-50";
+
+    if (freshD3Fragmentation === null) newErrors.frag = "Please select a grade";
+
+    const d2e2 = parseFloat(day2E2);
+    if (day2E2 === '') newErrors.d2e2 = "Required field";
+    else if (isNaN(d2e2) || d2e2 < 0 || d2e2 > 2000) newErrors.d2e2 = "0-2000 pg/mL";
+
+    const trigE2 = parseFloat(triggerDayE2);
+    if (triggerDayE2 === '') newErrors.trigE2 = "Required field";
+    else if (isNaN(trigE2) || trigE2 < 0 || trigE2 > 15000) newErrors.trigE2 = "0-15000 pg/mL";
+
+    const stimDays = parseFloat(stimulationDays);
+    if (stimulationDays === '') newErrors.stimDays = "Required field";
+    else if (isNaN(stimDays) || stimDays < 1 || stimDays > 40) newErrors.stimDays = "1-40 days";
+
+    if (previousIVF) {
+        const eggs = parseInt(eggsRetrieved);
+        if (eggsRetrieved === '') newErrors.eggs = "Required field";
+        else if (isNaN(eggs) || eggs < 0 || eggs > 100) newErrors.eggs = "0-100 eggs";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const InputGroup = ({ label, value, onChangeText, placeholder, unit, keyboardType = 'numeric', helperText }) => {
-    const [isFocused, setIsFocused] = useState(false);
-    return (
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
-        <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
-          <TextInput 
-            style={styles.input} 
-            placeholder={placeholder}
-            placeholderTextColor="#94A3B8"
-            value={value}
-            onChangeText={onChangeText}
-            keyboardType={keyboardType}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-          />
-        </View>
-        {helperText && <Text style={styles.helperText}>{helperText}</Text>}
-      </View>
-    );
+  const handleNext = () => {
+    if (validate()) {
+        navigation.navigate('ProfileSetupStep3', {
+            ...step1Data,
+            amhLevel: amhLevel === '' ? null : amhLevel,
+            previousIVF,
+            eggsRetrieved,
+            priorSAB: priorSAB === '' ? 0 : priorSAB,
+            freshD3CellCount,
+            freshD3Fragmentation,
+            calculatedVelocity
+        });
+    }
   };
+
 
   return (
     <View style={styles.container}>
@@ -124,9 +206,10 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
               label="AMH Level" 
               unit="ng/mL"
               value={amhLevel} 
-              onChangeText={setAmhLevel} 
+              onChangeText={(t) => { setAmhLevel(t); if(errors.amh) setErrors({...errors, amh: ''}); }} 
               placeholder="Ex. 5.5" 
               helperText="Anti-Müllerian Hormone level from your lab report."
+              error={errors.amh}
             />
           </View>
 
@@ -138,13 +221,18 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
           <View style={styles.glassCard}>
             <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputGroup label="Prior SAB" value={priorSAB} onChangeText={setPriorSAB} placeholder="0" />
+                    <InputGroup label="Prior SAB" value={priorSAB} onChangeText={(t) => { setPriorSAB(t); if(errors.sab) setErrors({...errors, sab: ''}); }} placeholder="0" error={errors.sab} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 8 }}>
-                    <InputGroup label="D3 Cell Count" value={freshD3CellCount} onChangeText={setFreshD3CellCount} placeholder="8" />
+                    <InputGroup label="D3 Cell Count" value={freshD3CellCount} onChangeText={(t) => { setFreshD3CellCount(t); if(errors.cells) setErrors({...errors, cells: ''}); }} placeholder="8" error={errors.cells} />
                 </View>
             </View>
-            <InputGroup label="D3 Fragmentation" unit="%" value={freshD3Fragmentation} onChangeText={setFreshD3Fragmentation} placeholder="0 - 100" />
+            <GradeSelector 
+              label="D3 Fragmentation Grade" 
+              selectedGrade={freshD3Fragmentation} 
+              onSelect={(g) => { setFreshD3Fragmentation(g); if(errors.frag) setErrors({...errors, frag: ''}); }} 
+              error={errors.frag}
+            />
           </View>
 
           <View style={styles.sectionHeaderBox}>
@@ -155,15 +243,15 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
           <View style={styles.glassCard}>
              <View style={styles.row}>
                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputGroup label="Day 2 E2" value={day2E2} onChangeText={setDay2E2} placeholder="40" />
+                    <InputGroup label="Day 2 E2" value={day2E2} onChangeText={(t) => { setDay2E2(t); if(errors.d2e2) setErrors({...errors, d2e2: ''}); }} placeholder="40" error={errors.d2e2} />
                  </View>
                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <InputGroup label="Trigger E2" value={triggerDayE2} onChangeText={setTriggerDayE2} placeholder="2000" />
+                    <InputGroup label="Trigger E2" value={triggerDayE2} onChangeText={(t) => { setTriggerDayE2(t); if(errors.trigE2) setErrors({...errors, trigE2: ''}); }} placeholder="2000" error={errors.trigE2} />
                  </View>
              </View>
              <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputGroup label="Stim. Days" value={stimulationDays} onChangeText={setStimulationDays} placeholder="10" />
+                    <InputGroup label="Stim. Days" value={stimulationDays} onChangeText={(t) => { setStimulationDays(t); if(errors.stimDays) setErrors({...errors, stimDays: ''}); }} placeholder="10" error={errors.stimDays} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 8 }}>
                     <Text style={styles.label}>Calculated Velocity</Text>
@@ -197,9 +285,10 @@ export default function ProfileSetupStep2Screen({ navigation, route }) {
                 <InputGroup 
                     label="Eggs Retrieved" 
                     value={eggsRetrieved} 
-                    onChangeText={setEggsRetrieved} 
+                    onChangeText={(t) => { setEggsRetrieved(t); setErrors({...errors, eggs: ''}); }} 
                     placeholder="Ex. 5" 
                     helperText="Total eggs retrieved in your most recent cycle."
+                    error={errors.eggs}
                 />
             </View>
           )}
@@ -379,12 +468,22 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
     backgroundColor: '#FFFFFF',
   },
+  inputWrapperError: {
+    borderColor: '#EF4444',
+  },
   input: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
     color: theme.colors.text,
     fontFamily: 'PlusJakartaSans_500Medium',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    marginTop: 4,
+    marginLeft: 4,
   },
   helperText: {
     fontSize: 11,
@@ -409,6 +508,46 @@ const styles = StyleSheet.create({
     color: '#0D9488',
     fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontSize: 16,
+  },
+  gradeGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  gradeButton: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  gradeButtonSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: '#F0FDFA',
+    transform: [{ scale: 1.05 }],
+  },
+  gradeButtonError: {
+    borderColor: '#EF4444',
+  },
+  gradeLabel: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#64748B',
+  },
+  gradeLabelSelected: {
+    color: theme.colors.primary,
+  },
+  gradeSub: {
+    fontSize: 9,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  gradeSubSelected: {
+    color: '#0D9488',
   },
   nextButton: {
     marginTop: 10,

@@ -25,12 +25,60 @@ export default function NutritionResultScreen({ navigation, route }) {
         detailedRecommendations = []
     } = params;
 
+    // DEBUG: Log received recommendations
+    console.log('=== NUTRITION RESULT SCREEN ===');
+    console.log('Total recommendations received:', detailedRecommendations.length);
+    console.log('Recommendations:', detailedRecommendations.map(r => r.nutrient).join(', '));
+    const bpRec = detailedRecommendations.find(r => r.nutrient === 'Blood Pressure');
+    if (bpRec) {
+        console.log('✓ BP FOUND:', bpRec.current, '→', bpRec.target, 'Impact:', bpRec.impact + '%');
+    } else {
+        console.log('✗ NO Blood Pressure recommendation found');
+    }
+
     const getStatusColor = (status) => {
-        return status === 'deficient' ? '#EF4444' : '#F59E0B';
+        if (status === 'deficient' || status === 'low') return '#EF4444';
+        if (status === 'elevated' || status === 'high') return '#F59E0B';
+        return '#94A3B8';
     };
 
     const getStatusLabel = (status) => {
-        return status === 'deficient' ? 'Below Target' : 'Above Target';
+        if (status === 'deficient') return 'Below Target';
+        if (status === 'elevated') return 'Above Target';
+        if (status === 'low') return 'Too Low';
+        if (status === 'high') return 'Too High';
+        return 'Needs Attention';
+    };
+
+    const getBMICategoryName = (catNum) => {
+        const catMap = {
+            1: 'Underweight',
+            2: 'Normal',
+            3: 'Overweight',
+            4: 'Obese'
+        };
+        return catMap[catNum] || catNum.toString();
+    };
+
+    const formatValue = (rec) => {
+        // Special formatting for BMI categories
+        if (rec.nutrient === 'Body Mass Index' && rec.unit === 'category') {
+            return {
+                current: getBMICategoryName(rec.current),
+                target: getBMICategoryName(rec.target)
+            };
+        }
+        // Special formatting for Blood Pressure (already includes unit in value)
+        if (rec.nutrient === 'Blood Pressure' && typeof rec.current === 'string' && rec.current.includes('/')) {
+            return {
+                current: `${rec.current} ${rec.unit}`,
+                target: `${rec.target} ${rec.unit}`
+            };
+        }
+        return {
+            current: `${rec.current} ${rec.unit}`,
+            target: `${rec.target} ${rec.unit}`
+        };
     };
 
     return (
@@ -63,28 +111,32 @@ export default function NutritionResultScreen({ navigation, route }) {
                 showsVerticalScrollIndicator={false}
             >
 
-                {/* Score Overview Card */}
-                <View style={[styles.card, styles.scoreCard]}>
-                    <View style={styles.scoreRow}>
-                        <View style={styles.scoreItem}>
-                            <Text style={styles.scoreLabel}>Current</Text>
-                            <Text style={styles.scoreValue}>{predictionSuccess.toFixed(1)}%</Text>
+                {/* Premium Optimization Hub */}
+                <View style={styles.optimizationHub}>
+                    <View style={styles.hubHeader}>
+                        <View style={styles.hubBadge}>
+                            <Text style={styles.hubBadgeText}>OPTIMIZATION ENGINE</Text>
                         </View>
-                        <View style={styles.scoreDivider} />
-                        <View style={styles.scoreItem}>
-                            <Text style={styles.scoreLabel}>Optimized</Text>
-                            <Text style={[styles.scoreValue, { color: '#10B981' }]}>{optimizedProbability.toFixed(1)}%</Text>
-                        </View>
+                        <Text style={styles.hubStatus}>ACTIVE SIMULATION</Text>
                     </View>
-                    <View style={styles.impactBadgeWrapper}>
-                        <LinearGradient
-                            colors={impactScore > 0 ? ['#10B981', '#059669'] : ['#64748B', '#475569']}
-                            style={styles.impactBadge}
-                        >
-                            <Text style={styles.impactBadgeText}>
-                                {impactScore > 0 ? `+${impactScore.toFixed(1)}% Potential Improvement` : 'Profile Already Optimized'}
+                    
+                    <View style={styles.hubMain}>
+                        <View style={styles.hubTextContent}>
+                            <Text style={styles.hubMainTitle}>Potential Gain</Text>
+                            <Text style={styles.hubMainDesc}>
+                                Projected increase in success probability through genomic-aligned nutrition.
                             </Text>
-                        </LinearGradient>
+                        </View>
+                        
+                        <View style={styles.hubScoreContainer}>
+                            <LinearGradient
+                                colors={['#10B981', '#059669']}
+                                style={styles.hubScoreCircle}
+                            >
+                                <Text style={styles.hubScoreValue}>+{impactScore.toFixed(1)}%</Text>
+                            </LinearGradient>
+                            <View style={styles.hubScoreGlow} />
+                        </View>
                     </View>
                 </View>
 
@@ -103,7 +155,9 @@ export default function NutritionResultScreen({ navigation, route }) {
                             <Text style={styles.sectionHeader}>Personalized Interventions</Text>
                         </View>
 
-                        {detailedRecommendations.map((rec, index) => (
+                        {detailedRecommendations.map((rec, index) => {
+                            const formattedValues = formatValue(rec);
+                            return (
                             <View key={index} style={styles.recommendationCard}>
                                 <View style={styles.recHeader}>
                                     <View style={styles.iconCircle}>
@@ -119,7 +173,9 @@ export default function NutritionResultScreen({ navigation, route }) {
                                         </View>
                                     </View>
                                     <View style={styles.impactChip}>
-                                        <Text style={styles.impactChipText}>+{rec.impact}%</Text>
+                                        <Text style={styles.impactChipText}>
+                                            {rec.impact > 0 ? '+' : ''}{rec.impact}%
+                                        </Text>
                                     </View>
                                 </View>
                                 
@@ -127,12 +183,12 @@ export default function NutritionResultScreen({ navigation, route }) {
                                     <View style={styles.valuesRow}>
                                         <View style={styles.valueBox}>
                                             <Text style={styles.valueLabel}>Current</Text>
-                                            <Text style={[styles.valueNum, { color: '#EF4444' }]}>{rec.current} {rec.unit}</Text>
+                                            <Text style={[styles.valueNum, { color: '#EF4444' }]}>{formattedValues.current}</Text>
                                         </View>
                                         <Text style={styles.arrow}>→</Text>
                                         <View style={styles.valueBox}>
                                             <Text style={styles.valueLabel}>Target</Text>
-                                            <Text style={[styles.valueNum, { color: '#10B981' }]}>{rec.target} {rec.unit}</Text>
+                                            <Text style={[styles.valueNum, { color: '#10B981' }]}>{formattedValues.target}</Text>
                                         </View>
                                     </View>
                                 </View>
@@ -142,7 +198,7 @@ export default function NutritionResultScreen({ navigation, route }) {
                                     <Text style={styles.foodTipText}>{rec.food_tip}</Text>
                                 </View>
                             </View>
-                        ))}
+                        )})}
                     </>
                 )}
 
@@ -175,16 +231,9 @@ export default function NutritionResultScreen({ navigation, route }) {
 
                 <TouchableOpacity
                     style={styles.primaryButton}
-                    onPress={() => navigation.navigate('WellnessHome')}
-                >
-                    <Text style={styles.primaryButtonText}>Sync to Health Profile</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.secondaryButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Text style={styles.secondaryButtonText}>Modify Input Data</Text>
+                    <Text style={styles.primaryButtonText}>Modify Input Data</Text>
                 </TouchableOpacity>
 
                 <View style={{ height: 60 }} />
@@ -258,54 +307,92 @@ const styles = StyleSheet.create({
         ...theme.shadows.premium,
         marginBottom: 24,
     },
-    scoreCard: {
-        alignItems: 'center',
-        marginTop: -50,
-    },
-    scoreRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
+    optimizationHub: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 20,
+        marginHorizontal: 4,
+        ...theme.shadows.premium,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.7)',
         marginBottom: 24,
     },
-    scoreItem: {
+    hubHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        flex: 1,
+        marginBottom: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
     },
-    scoreDivider: {
-        width: 1,
-        height: 40,
-        backgroundColor: '#E2E8F0',
+    hubBadge: {
+        backgroundColor: '#F0FDFA',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#CCFBF1',
     },
-    scoreLabel: {
-        fontSize: 12,
-        fontFamily: 'PlusJakartaSans_700Bold',
-        color: '#64748B',
-        textTransform: 'uppercase',
-        marginBottom: 8,
+    hubBadgeText: {
+        fontSize: 10,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+        color: '#0D9488',
         letterSpacing: 0.5,
     },
-    scoreValue: {
-        fontSize: 32,
+    hubStatus: {
+        fontSize: 10,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#94A3B8',
+        letterSpacing: 1,
+    },
+    hubMain: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    hubTextContent: {
+        flex: 1,
+        paddingRight: 16,
+    },
+    hubMainTitle: {
+        fontSize: 18,
         fontFamily: 'PlusJakartaSans_800ExtraBold',
         color: '#0F172A',
+        marginBottom: 4,
     },
-    impactBadgeWrapper: {
-        width: '100%',
-        borderRadius: 16,
-        overflow: 'hidden',
+    hubMainDesc: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#64748B',
+        lineHeight: 18,
     },
-    impactBadge: {
-        paddingVertical: 14,
-        alignItems: 'center',
+    hubScoreContainer: {
+        width: 80,
+        height: 80,
         justifyContent: 'center',
+        alignItems: 'center',
     },
-    impactBadgeText: {
+    hubScoreCircle: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2,
+        ...theme.shadows.medium,
+    },
+    hubScoreValue: {
         color: '#FFFFFF',
-        fontFamily: 'PlusJakartaSans_700Bold',
-        fontSize: 15,
-        letterSpacing: 0.5,
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+    },
+    hubScoreGlow: {
+        position: 'absolute',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+        zIndex: 1,
     },
     summaryCard: {
         flexDirection: 'row',

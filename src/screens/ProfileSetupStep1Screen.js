@@ -9,7 +9,8 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Dimensions
+  Dimensions,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
@@ -23,32 +24,6 @@ export default function ProfileSetupScreen({ navigation }) {
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('160');
   const [weight, setWeight] = useState('55');
-  const [prefillReady, setPrefillReady] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProfile() {
-      try {
-        const profile = await fetchUserProfile(auth?.currentUser?.uid);
-        if (!active || !profile) return;
-
-        setName(profile.fullName || [profile.firstName, profile.lastName].filter(Boolean).join(' '));
-        setAge(profile.age ? String(profile.age) : '');
-        setHeight(profile?.onboarding?.height ? String(profile.onboarding.height) : '160');
-        setWeight(profile?.onboarding?.weight ? String(profile.onboarding.weight) : '55');
-      } catch (error) {
-        console.log('step1 prefill error:', error);
-      } finally {
-        if (active) setPrefillReady(true);
-      }
-    }
-
-    loadProfile();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -110,16 +85,19 @@ export default function ProfileSetupScreen({ navigation }) {
             <InputGroup 
               label="What's your name?" 
               value={name} 
-              onChangeText={setName} 
+              onChangeText={(t) => { setName(t); setErrors({...errors, name: ''}); }} 
               placeholder="Ex. Sarah" 
+              error={errors.name}
             />
 
             <InputGroup 
               label="Age" 
               value={age} 
-              onChangeText={setAge} 
+              onChangeText={(t) => { setAge(t); setErrors({...errors, age: ''}); }} 
               placeholder="Ex. 32" 
               keyboardType="numeric" 
+              unit="yrs"
+              error={errors.age}
             />
 
             <View style={styles.row}>
@@ -128,9 +106,10 @@ export default function ProfileSetupScreen({ navigation }) {
                   label="Height" 
                   unit="cm"
                   value={height} 
-                  onChangeText={setHeight} 
+                  onChangeText={(t) => { setHeight(t); setErrors({...errors, height: ''}); }} 
                   placeholder="160" 
                   keyboardType="numeric" 
+                  error={errors.height}
                 />
               </View>
               <View style={{ flex: 1, marginLeft: 8 }}>
@@ -138,19 +117,19 @@ export default function ProfileSetupScreen({ navigation }) {
                   label="Weight" 
                   unit="kg"
                   value={weight} 
-                  onChangeText={setWeight} 
+                  onChangeText={(t) => { setWeight(t); setErrors({...errors, weight: ''}); }} 
                   placeholder="55" 
                   keyboardType="numeric" 
+                  error={errors.weight}
                 />
               </View>
             </View>
           </View>
 
+
           <TouchableOpacity 
             style={styles.nextButton}
-            onPress={() => navigation.navigate('ProfileSetupStep2', {
-              name, age, height, weight
-            })}
+            onPress={handleNext}
             activeOpacity={0.9}
             disabled={!prefillReady}
           >
@@ -298,12 +277,22 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.primary,
     backgroundColor: '#FFFFFF',
   },
+  inputWrapperError: {
+    borderColor: '#EF4444',
+  },
   input: {
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     color: theme.colors.text,
     fontFamily: 'PlusJakartaSans_500Medium',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    marginTop: 4,
+    marginLeft: 4,
   },
   row: {
     flexDirection: 'row',

@@ -57,20 +57,23 @@ export default function LoadingScreen({ navigation, route }) {
   }, []);
 
   useEffect(() => {
-      // Create an async function to call the backend API and wait for the progress bar
       const fetchPrediction = async () => {
           try {
-              // The API expects age, bmi, amh_level, prior_sab, d3_cell_count, d3_fragmentation, calculated_velocity
               const apiUrl = 'http://127.0.0.1:8000/api/predict/ivf';
-              
+              const safeParse = (val, defaultValue) => {
+                  if (val === undefined || val === null || val === '') return defaultValue;
+                  const parsed = parseFloat(val);
+                  return isNaN(parsed) ? defaultValue : parsed;
+              };
+
               const requestBody = {
-                  age: parseFloat(params.age) || 30.0,
-                  bmi: parseFloat(params.bmi) || 22.0,
-                  amh_level: parseFloat(params.amhLevel) || 2.0,
-                  prior_sab: parseFloat(params.priorSAB) || 0.0,
-                  d3_cell_count: parseFloat(params.freshD3CellCount) || 8.0,
-                  d3_fragmentation: parseFloat(params.freshD3Fragmentation) || 0.0,
-                  calculated_velocity: parseFloat(params.calculatedVelocity) || 0.0
+                  age: safeParse(params.age, 30.0),
+                  bmi: safeParse(params.bmi, 22.0),
+                  amh_level: safeParse(params.amhLevel, 2.0),
+                  prior_sab: safeParse(params.priorSAB, 0.0),
+                  d3_cell_count: safeParse(params.freshD3CellCount, 8.0),
+                  d3_fragmentation: safeParse(params.freshD3Fragmentation, 0.0),
+                  calculated_velocity: safeParse(params.calculatedVelocity, 0.0)
               };
 
               const response = await fetch(apiUrl, {
@@ -81,30 +84,37 @@ export default function LoadingScreen({ navigation, route }) {
                   body: JSON.stringify(requestBody)
               });
 
-              const data = await response.json();
-              if (response.ok && data.success) {
-                  // Wait until progress reaches 100% just to show the UI
-                  const checkProgress = setInterval(() => {
-                      setProgress((currentProgress) => {
-                          if (currentProgress >= 100) {
-                              clearInterval(checkProgress);
-                              setTimeout(() => {
-                                  // Pass the prediction percentage to the next screen (params or direct)
-                                  navigation.replace('MainTabs', {
-                                      ...params,
-                                      predictionSuccess: data.success_probability_percentage || data.prediction || 68
-                                  });
-                              }, 500);
-                              return 100;
-                          }
-                          return currentProgress;
-                      });
-                  }, 50);
-              } else {
-                  console.error('API Error:', data.detail);
-                  // Fallback if API fails
-                  fallbackNavigation();
-              }
+               const data = await response.json();
+               console.log('IVF API Response:', data);
+               
+               if (response.ok && data.success) {
+                   const score = data.success_probability_percentage || data.prediction || 68;
+                   console.log('Setting predictionSuccess to:', score);
+                   
+                   // Wait until progress reaches 100% just to show the UI
+                   const checkProgress = setInterval(() => {
+                       setProgress((currentProgress) => {
+                           if (currentProgress >= 100) {
+                               clearInterval(checkProgress);
+                               setTimeout(() => {
+                                   console.log('Navigating to MainTabs Dashboard with score:', score);
+                                   navigation.replace('MainTabs', {
+                                       screen: 'Dashboard',
+                                       params: {
+                                           ...params,
+                                           predictionSuccess: score
+                                       }
+                                   });
+                               }, 500);
+                               return 100;
+                           }
+                           return currentProgress;
+                       });
+                   }, 50);
+               } else {
+                   console.error('API Error:', data.detail || 'Unknown error');
+                   fallbackNavigation();
+               }
           } catch (error) {
               console.error('Network Error:', error);
               // Fallback if no network

@@ -22,7 +22,7 @@ const TabIcon = ({ focused, name }) => {
             break;
         case 'Nutrition': 
             iconName = focused ? 'leaf' : 'leaf-outline'; 
-            label = 'Health';
+            label = 'Nutrition';
             break;
         case 'Wellness': 
             iconName = focused ? 'heart' : 'heart-outline'; 
