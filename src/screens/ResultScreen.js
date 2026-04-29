@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-<<<<<<< HEAD
 import {
     View,
     Text,
@@ -19,15 +18,6 @@ import { theme } from '../theme';
 
 const { height } = Dimensions.get('window');
 const API_URL = 'http://localhost:8000';
-=======
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, TouchableOpacity, StatusBar, Platform, Animated, ActivityIndicator, Alert, Image } from 'react-native';
-import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop, Shadow } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '../theme';
-
-const { width, height } = Dimensions.get('window');
-const API_URL = 'http://127.0.0.1:8000';
->>>>>>> 14dcd55db9268b2f1e7d3c159a30d340ad36ea50
 
 const SuccessRing = ({ percentage = 68 }) => {
     const radius = 90;
@@ -130,7 +120,6 @@ const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
 
 export default function ResultScreen({ navigation, route }) {
     const params = route.params || {};
-<<<<<<< HEAD
     const analysisReady = params.predictionSuccess !== undefined && params.predictionSuccess !== null;
 
     const ageFactor = Math.max(10, Math.min(95, ((50 - (parseFloat(params.age) || 34)) / 32) * 100));
@@ -140,29 +129,6 @@ export default function ResultScreen({ navigation, route }) {
     const fragVal = parseFloat(params.d3_fragmentation || params.freshD3Fragmentation) || 10;
     const fragFactor = Math.max(10, Math.min(95, ((30 - fragVal) / 30) * 100));
     const successRate = analysisReady ? Math.round(params.predictionSuccess) : 0;
-=======
-    console.log('ResultScreen received params:', params);
-
-    const getVal = (val, defaultValue) => {
-        if (val === undefined || val === null || val === '') return defaultValue;
-        const parsed = parseFloat(val);
-        return isNaN(parsed) ? defaultValue : parsed;
-    };
-
-    const currentAge = getVal(params.age, 34);
-    const ageFactor = Math.max(10, Math.min(95, ((50 - currentAge) / 32) * 100));
-
-    const currentAmh = getVal(params.amh_level || params.amhLevel, 2.0);
-    const amhFactor = Math.max(10, Math.min(95, (currentAmh / 5) * 100));
-
-    const currentBmi = getVal(params.bmi, 22.0);
-    const bmiFactor = Math.max(10, Math.min(95, (1 - Math.abs(22 - currentBmi) / 20) * 100));
-
-    const currentFrag = getVal(params.d3_fragmentation || params.freshD3Fragmentation, 10);
-    const fragFactor = Math.max(10, Math.min(95, ((30 - currentFrag) / 30) * 100));
-
-    const successRate = params.predictionSuccess !== undefined ? parseFloat(params.predictionSuccess) : 48.0;
->>>>>>> 14dcd55db9268b2f1e7d3c159a30d340ad36ea50
 
     const [doctorAdvice, setDoctorAdvice] = useState(null);
     const [loadingAdvice, setLoadingAdvice] = useState(false);
@@ -196,23 +162,15 @@ export default function ResultScreen({ navigation, route }) {
             setLoadingAdvice(false);
         }
     };
-    
-    // Helper function to render AI advice with structure
+
     const renderAdviceContent = (text) => {
         if (!text) return null;
-        
-        // Split by double newlines or single newlines that look like list starts
         const sections = text.split(/\n\n|\n(?=[•\-\*\d\.])/);
-        
         return sections.map((section, idx) => {
             const trimmed = section.trim();
             if (!trimmed) return null;
-            
-            // Check if it's a list (starts with •, -, *, or 1.)
             const isBullet = /^[•\-\*\d]/.test(trimmed);
-            
             if (isBullet) {
-                // Split internal lines if it's a block of bullets
                 const items = trimmed.split('\n');
                 return (
                     <View key={`section-${idx}`} style={styles.adviceList}>
@@ -229,8 +187,6 @@ export default function ResultScreen({ navigation, route }) {
                     </View>
                 );
             }
-            
-            // Render regular paragraph
             return (
                 <Text key={`section-${idx}`} style={styles.adviceParagraph}>
                     {trimmed}
@@ -290,7 +246,6 @@ export default function ResultScreen({ navigation, route }) {
 
                                 <View style={styles.divider} />
 
-<<<<<<< HEAD
                                 <View style={styles.cardHeader}>
                                     <Text style={styles.sectionHeaderSub}>Key Influencing Factors</Text>
                                     <Text style={styles.impactLabel}>Overall Impact</Text>
@@ -312,104 +267,6 @@ export default function ResultScreen({ navigation, route }) {
                                     <JourneyStep label="Pre-Transfer" isLast />
                                 </View>
                             </View>
-=======
-                {/* Journey Section */}
-                <View style={[styles.card, styles.journeyCard]}>
-                    <Text style={styles.sectionHeaderSub}>Your IVF Journey</Text>
-                    <View style={styles.journeyContainer}>
-                        <JourneyStep label="Initial Consultation" isCompleted />
-                        <JourneyStep label="Stimulation Phase" isCompleted />
-                        <JourneyStep label="Post-Lab Analysis" isCurrent />
-                        <JourneyStep label="Pre-Transfer" isLast />
-                    </View>
-                </View>
-
-                {/* Patient Profile Section */}
-                <View style={styles.card}>
-                    <Text style={[styles.sectionHeaderSub, { marginBottom: 16 }]}>Clinical Profile Summary</Text>
-                    <View style={styles.profileGrid}>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>Age</Text>
-                            <Text style={styles.profileValue}>{currentAge} yrs</Text>
-                        </View>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>AMH</Text>
-                            <Text style={styles.profileValue}>{currentAmh.toFixed(1)} ng/mL</Text>
-                        </View>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>BMI</Text>
-                            <Text style={styles.profileValue}>{currentBmi.toFixed(1)}</Text>
-                        </View>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>Prior SAB</Text>
-                            <Text style={styles.profileValue}>{getVal(params.prior_sab || params.priorSAB, 0)}</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* New Premium Doctor Consultation Card */}
-                <View style={styles.ctaCardWrapper}>
-                    <LinearGradient
-                        colors={['#0F766E', '#0D9488']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.ctaCard}
-                    >
-                        <View style={styles.ctaLeft}>
-                            <Text style={styles.ctaTitle}>Get Clinical{"\n"}Recommendation</Text>
-                            <Text style={styles.ctaSubtitle}>Personalized AI medical insights</Text>
-                            
-                            <TouchableOpacity
-                                style={styles.ctaButton}
-                                onPress={fetchDoctorRecommendation}
-                                disabled={loadingAdvice}
-                            >
-                                <View style={styles.ctaButtonInner}>
-                                    {loadingAdvice ? (
-                                        <ActivityIndicator color="#0D9488" size="small" />
-                                    ) : (
-                                        <>
-                                            <Text style={styles.ctaButtonIcon}>🩺</Text>
-                                            <Text style={styles.ctaButtonText}>Get Now</Text>
-                                        </>
-                                    )}
-                                </View>
-                            </TouchableOpacity>
-                        </View>
-                        
-                        <View style={styles.ctaImageContainer}>
-                            <Image 
-                                source={require('../../assets/ai_doctor.png')} 
-                                style={styles.ctaImage}
-                                resizeMode="contain"
-                            />
-                        </View>
-                    </LinearGradient>
-                </View>
-
-                {/* Doctor Advice Response */}
-                {doctorAdvice && (
-                    <View style={styles.doctorCard}>
-                        <View style={styles.doctorCardHeader}>
-                            <Image 
-                                source={require('../../assets/ai_doctor.png')} 
-                                style={styles.doctorAvatarSmall} 
-                            />
-                            <View>
-                                <Text style={styles.doctorName}>MedLLaMA2 AI Doctor</Text>
-                                <Text style={styles.doctorSubtitleSmall}>Personalized Medical Advice</Text>
-                            </View>
-                        </View>
-                        <View style={styles.doctorDivider} />
-                        <View style={styles.adviceContentContainer}>
-                            {renderAdviceContent(doctorAdvice)}
-                        </View>
-                        <View style={styles.disclaimerBox}>
-                            <Text style={styles.disclaimerText}>⚠️ This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.</Text>
-                        </View>
-                    </View>
-                )}
->>>>>>> 14dcd55db9268b2f1e7d3c159a30d340ad36ea50
 
                             <View style={styles.card}>
                                 <Text style={[styles.sectionHeaderSub, { marginBottom: 16 }]}>
@@ -469,7 +326,9 @@ export default function ResultScreen({ navigation, route }) {
                                         </View>
                                     </View>
                                     <View style={styles.doctorDivider} />
-                                    <Text style={styles.doctorText}>{doctorAdvice}</Text>
+                                    <View style={styles.adviceContentContainer}>
+                                        {renderAdviceContent(doctorAdvice)}
+                                    </View>
                                     <View style={styles.disclaimerBox}>
                                         <Text style={styles.disclaimerText}>
                                             This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.
@@ -809,80 +668,20 @@ const styles = StyleSheet.create({
         color: '#0F172A',
         fontFamily: 'PlusJakartaSans_700Bold',
     },
-    ctaCardWrapper: {
+    doctorButton: {
         marginBottom: 24,
-        borderRadius: 28,
-        overflow: 'hidden',
-        ...theme.shadows.medium,
-    },
-    ctaCard: {
-        flexDirection: 'row',
-        padding: 24,
-        minHeight: 240, // Increased to provide more head room
-        alignItems: 'center',
-    },
-    ctaLeft: {
-        flex: 1.2,
-        zIndex: 2,
-    },
-    ctaTitle: {
-        fontSize: 22,
-        fontFamily: 'PlusJakartaSans_800ExtraBold',
-        color: '#FFFFFF',
-        lineHeight: 28,
-        marginBottom: 8,
-    },
-    ctaSubtitle: {
-        fontSize: 14,
-        fontFamily: 'PlusJakartaSans_500Medium',
-        color: 'rgba(255, 255, 255, 0.8)',
-        marginBottom: 20,
-    },
-    ctaButton: {
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
         borderRadius: 20,
-        alignSelf: 'flex-start',
-        ...theme.shadows.soft,
+        overflow: 'hidden',
     },
-    ctaButtonInner: {
-        flexDirection: 'row',
+    doctorButtonGradient: {
+        paddingVertical: 18,
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    ctaButtonIcon: {
+    doctorButtonText: {
+        color: '#FFFFFF',
         fontSize: 16,
-        marginRight: 8,
-    },
-    ctaButtonText: {
-        color: '#0D9488',
-        fontSize: 15,
         fontFamily: 'PlusJakartaSans_700Bold',
-    },
-    ctaImageContainer: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        right: -20,
-        width: '60%',
-        justifyContent: 'flex-end',
-        alignItems: 'flex-end',
-    },
-    ctaImage: {
-        width: '100%',
-        height: '100%',
-    },
-    doctorAvatarSmall: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        marginRight: 14,
-        backgroundColor: '#F1F5F9',
-    },
-    doctorSubtitleSmall: {
-        fontSize: 12,
-        color: '#0D9488',
-        fontFamily: 'PlusJakartaSans_500Medium',
     },
     doctorCard: {
         backgroundColor: '#FFFFFF',

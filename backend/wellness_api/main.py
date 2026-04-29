@@ -954,3 +954,4 @@ def signup_verify_otp(req: SignupVerifyOtpRequest):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     return {"status": "ok", "detail": "Phone verified"}
+

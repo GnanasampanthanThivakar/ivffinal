@@ -17,22 +17,18 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
-  EmailAuthProvider,
-  reauthenticateWithCredential,
   updateProfile,
 } from 'firebase/auth';
-import { apiEmailChangeRequest, apiEmailChangeVerify, apiSignupSendOtp, apiSignupVerifyOtp } from '../services/backendApi';
+import { apiSignupSendOtp, apiSignupVerifyOtp } from '../services/backendApi';
 
 import { auth } from '../services/firebase';
 import { fetchUserProfile, saveUserProfile } from '../services/userProfileService';
 import {
-  buildFirebasePasswordCandidates,
   calculateAgeFromDob,
   formatDateISO,
   generateUsername,
   getAdultDobCutoffDate,
   isAdultDob,
-  isValidEmail,
   isValidName,
   isValidSriLankanPhone,
   normalizeEmail,
@@ -169,11 +165,6 @@ export default function AccountProfileScreen() {
   const [profilePhotoUri, setProfilePhotoUri] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showDobPicker, setShowDobPicker] = useState(false);
-  const [currentSecret, setCurrentSecret] = useState('');
-  const [otpStep, setOtpStep] = useState(false);
-  const [otpValue, setOtpValue] = useState('');
-  const [otpVerifying, setOtpVerifying] = useState(false);
-  const [pendingNewEmail, setPendingNewEmail] = useState('');
   const [phoneOtpStep, setPhoneOtpStep] = useState(false);
   const [phoneOtpValue, setPhoneOtpValue] = useState('');
   const [phoneOtpVerifying, setPhoneOtpVerifying] = useState(false);
@@ -230,7 +221,6 @@ export default function AccountProfileScreen() {
       setForm(nextForm);
       await loadProfilePhoto(auth?.currentUser?.uid || '');
       setShowDobPicker(false);
-      setCurrentSecret('');
       setIsEditing(false);
     } catch (error) {
       setErrorMsg(error?.message || 'Failed to load profile');
@@ -267,11 +257,6 @@ export default function AccountProfileScreen() {
     return profilePhotoUri ? { uri: profilePhotoUri } : DEFAULT_PROFILE_AVATAR;
   }, [profilePhotoUri]);
 
-  const authEmail = String(auth?.currentUser?.email || '').trim().toLowerCase();
-  const isEmailChanged = useMemo(() => {
-    const formEmail = normalizeEmail(form?.email || '');
-    return !!formEmail && !!authEmail && formEmail !== authEmail;
-  }, [form?.email, authEmail]);
 
   function onStartEdit() {
     setErrorMsg('');
@@ -280,13 +265,10 @@ export default function AccountProfileScreen() {
   }
 
   function onCancelEdit() {
-    const resetForm = buildFormFromProfile(profile);
-    resetForm.email = normalizeEmail(profile?.pendingEmail || auth?.currentUser?.email || '');
-    setForm(resetForm);
+    setForm(buildFormFromProfile(profile));
     setShowDobPicker(false);
     setErrorMsg('');
     setSuccessMsg('');
-    setCurrentSecret('');
     setIsEditing(false);
   }
 
@@ -372,15 +354,12 @@ export default function AccountProfileScreen() {
       const normalizedDob = String(form.dob || '').trim();
       const normalizedAge = calculateAgeFromDob(normalizedDob);
       const normalizedPrimaryPhone = normalizeSriLankanPhone(form.primaryPhone);
-      const normalizedSecondaryPhone = normalizeSriLankanPhone(form.secondaryPhone);
       const normalizedEmail = normalizeEmail(form.email);
       const normalizedUsername = generateUsername(
         normalizedEmail,
         normalizedFirstName,
         normalizedLastName
       );
-      const currentAuthEmail = String(auth.currentUser.email || '').trim().toLowerCase();
-      const emailChanged = !!normalizedEmail && !!currentAuthEmail && normalizedEmail !== currentAuthEmail;
       const nextDisplayName = `${normalizedFirstName} ${normalizedLastName}`.trim();
 
       if (!isValidName(normalizedFirstName)) {
@@ -395,48 +374,8 @@ export default function AccountProfileScreen() {
       if (!isValidSriLankanPhone(normalizedPrimaryPhone)) {
         throw new Error('User mobile phone must be a valid Sri Lankan mobile number');
       }
-      if (!isValidSriLankanPhone(normalizedSecondaryPhone)) {
-        throw new Error('Guardian mobile must be a valid Sri Lankan mobile number');
-      }
-      if (normalizedPrimaryPhone === normalizedSecondaryPhone) {
-        throw new Error('User mobile phone and guardian mobile must be different');
-      }
-      if (!isValidEmail(normalizedEmail)) {
-        throw new Error('Enter a valid email address');
-      }
       if (String(form.address || '').trim().length < 10) {
         throw new Error('Address must be at least 10 characters');
-      }
-
-      if (emailChanged) {
-        if ((profile?.provider || 'password') !== 'password') {
-          throw new Error('Email can only be changed after signing in again with the original provider.');
-        }
-        if (!String(currentSecret || '').trim()) {
-          throw new Error('Enter your current password to change email.');
-        }
-
-        const candidates = buildFirebasePasswordCandidates(currentAuthEmail, currentSecret);
-        let reauthError = null;
-        for (const candidate of candidates) {
-          try {
-            const credential = EmailAuthProvider.credential(currentAuthEmail, candidate);
-            await reauthenticateWithCredential(auth.currentUser, credential);
-            reauthError = null;
-            break;
-          } catch (error) {
-            reauthError = error;
-          }
-        }
-        if (reauthError) throw new Error('Current password or PIN is incorrect.');
-
-        await apiEmailChangeRequest({ userId, newEmail: normalizedEmail });
-        setPendingNewEmail(normalizedEmail);
-        setOtpStep(true);
-        setOtpValue('');
-        setSuccessMsg(`OTP sent to ${normalizedEmail}. Enter the 4-digit code below.`);
-        setSaving(false);
-        return;
       }
 
       const phoneChanged = !!normalizedPrimaryPhone && normalizedPrimaryPhone !== normalizeSriLankanPhone(profile?.primaryPhone || '');
@@ -461,11 +400,10 @@ export default function AccountProfileScreen() {
         dob: normalizedDob,
         age: normalizedAge,
         primaryPhone: normalizedPrimaryPhone,
-        secondaryPhone: normalizedSecondaryPhone,
+        secondaryPhone: normalizeSriLankanPhone(profile?.secondaryPhone || ''),
         alertWhatsappPhone: String(form.alertWhatsappPhone || '').trim(),
         address: String(form.address || '').trim(),
-        email: String(auth.currentUser.email || normalizedEmail || '').trim().toLowerCase(),
-        pendingEmail: emailChanged ? normalizedEmail : '',
+        email: String(auth.currentUser.email || '').trim().toLowerCase(),
         provider: String(form.provider || '').trim(),
         whatsappAlertsEnabled: !!form.whatsappAlertsEnabled,
         onboardingCompleted: !!form.onboardingCompleted,
@@ -480,41 +418,13 @@ export default function AccountProfileScreen() {
             : '',
         },
       });
-      setCurrentSecret('');
-      setSuccessMsg(
-        emailChanged
-          ? 'Profile updated. Verify the link sent to your new email to finish changing the login email.'
-          : 'Profile updated successfully.'
-      );
+      setSuccessMsg('Profile updated successfully.');
       await loadProfile();
     } catch (error) {
       const raw = String(error?.message || 'Failed to save profile');
       setErrorMsg(raw.replace(/^Error:\s*/i, ''));
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function onVerifyOtp() {
-    if (!userId || !pendingNewEmail) return;
-    if (otpValue.length !== 4) {
-      setErrorMsg('Enter the 4-digit code sent to your new email.');
-      return;
-    }
-    try {
-      setOtpVerifying(true);
-      setErrorMsg('');
-      await apiEmailChangeVerify({ userId, newEmail: pendingNewEmail, otp: otpValue });
-      setOtpStep(false);
-      setOtpValue('');
-      setPendingNewEmail('');
-      setCurrentSecret('');
-      setSuccessMsg('Email updated successfully.');
-      await loadProfile();
-    } catch (error) {
-      setErrorMsg(String(error?.message || 'Invalid or expired code. Try again.').replace(/^Error:\s*/i, ''));
-    } finally {
-      setOtpVerifying(false);
     }
   }
 
@@ -612,53 +522,6 @@ export default function AccountProfileScreen() {
             <TouchableOpacity
               style={{ marginTop: 14, alignItems: 'center' }}
               onPress={() => { setPhoneOtpStep(false); setPhoneOtpValue(''); setErrorMsg(''); setSuccessMsg(''); }}
-              activeOpacity={0.8}
-            >
-              <Text style={{ color: '#64748B', fontSize: 13 }}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  if (otpStep) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={[styles.content, { justifyContent: 'center', flexGrow: 1 }]}>
-          <View style={[styles.sectionCard, { marginTop: 40 }]}>
-            <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Verify New Email</Text>
-            <Text style={{ color: '#64748B', fontSize: 14, marginBottom: 20 }}>
-              Enter the 4-digit code sent to{'\n'}
-              <Text style={{ fontWeight: '800', color: '#0D9488' }}>{pendingNewEmail}</Text>
-            </Text>
-
-            {!!errorMsg && <Text style={styles.error}>{errorMsg}</Text>}
-            {!!successMsg && <Text style={styles.success}>{successMsg}</Text>}
-
-            <TextInput
-              style={[styles.input, { fontSize: 28, fontWeight: '800', letterSpacing: 16, textAlign: 'center' }]}
-              value={otpValue}
-              onChangeText={(v) => setOtpValue(v.replace(/\D/g, '').slice(0, 4))}
-              placeholder="0000"
-              placeholderTextColor="#CBD5E1"
-              keyboardType="number-pad"
-              maxLength={4}
-              autoFocus
-            />
-
-            <TouchableOpacity
-              style={[styles.stickyBtnPrimary, { marginTop: 16, borderRadius: 16, paddingVertical: 14, alignItems: 'center', opacity: otpVerifying ? 0.7 : 1 }]}
-              onPress={onVerifyOtp}
-              disabled={otpVerifying}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.stickyBtnPrimaryText}>{otpVerifying ? 'Verifying...' : 'Verify Code'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{ marginTop: 14, alignItems: 'center' }}
-              onPress={() => { setOtpStep(false); setOtpValue(''); setErrorMsg(''); setSuccessMsg(''); }}
               activeOpacity={0.8}
             >
               <Text style={{ color: '#64748B', fontSize: 13 }}>Cancel</Text>
@@ -841,46 +704,19 @@ export default function AccountProfileScreen() {
               <ProfileField
                 label="Guardian Mobile No "
                 value={form.secondaryPhone}
-                onChangeText={(value) =>
-                  setField('secondaryPhone', normalizeSriLankanPhone(value))
-                }
                 isEditing={isEditing}
                 placeholder="+94..."
                 keyboardType="phone-pad"
+                editable={false}
               />
 
               <ProfileField
                 label="Email"
                 value={form.email}
-                onChangeText={(value) => setField('email', normalizeEmail(value))}
                 isEditing={isEditing}
                 placeholder="name@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                helperText={
-                  !isEditing && profile?.pendingEmail
-                    ? 'Verification pending for this new email address.'
-                    : ''
-                }
+                editable={false}
               />
-
-              {isEditing && isEmailChanged ? (
-                <View style={styles.fieldWrap}>
-                  <Text style={styles.fieldLabel}>Current password</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={currentSecret}
-                    onChangeText={setCurrentSecret}
-                    placeholder="Enter your current password"
-                    placeholderTextColor="#9AA9B8"
-                    secureTextEntry
-                    autoCapitalize="none"
-                  />
-                  <Text style={styles.helperText}>
-                    Needed to re-authenticate before changing the login email.
-                  </Text>
-                </View>
-              ) : null}
 
               <ProfileField
                 label="Address"
@@ -891,6 +727,7 @@ export default function AccountProfileScreen() {
                 multiline
               />
             </SectionCard>
+
 
           </>
         )}
