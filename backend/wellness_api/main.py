@@ -1,5 +1,13 @@
 from fastapi import FastAPI, HTTPException
+from google.api_core.exceptions import PermissionDenied, ResourceExhausted
 from fastapi.middleware.cors import CORSMiddleware
+
+import json
+from datetime import datetime
+from textwrap import shorten
+import numpy as np
+import pandas as pd
+import xgboost as xgb
 
 from wellness_api.schemas.request import (
     PredictRequest,
@@ -7,6 +15,13 @@ from wellness_api.schemas.request import (
     WeeklyReportRequest,
     AlertsListRequest,
     AlertsMarkReadRequest,
+    SmsTestRequest,
+    ForgotPinRequest,
+    ResolveLoginIdRequest,
+    EmailChangeRequestOtp,
+    EmailChangeVerifyOtp,
+    SignupSendOtpRequest,
+    SignupVerifyOtpRequest,
 )
 
 from wellness_api.schemas.response import (
@@ -17,14 +32,13 @@ from wellness_api.schemas.response import (
     AlertsListResponse,
     AlertItem,
     AlertsMarkReadResponse,
+    SmsTestResponse,
     ActivitiesListResponse,
     ActivityCatalogItem,
+    ForgotPinResponse,
+    ResolveLoginIdResponse,
+    EmailChangeOtpResponse,
 )
-
-import json
-import numpy as np
-import pandas as pd
-import xgboost as xgb
 
 from wellness_api.core.config import (
     ACTIVITY_XGB_MODEL_PATH,
@@ -34,44 +48,141 @@ from wellness_api.core.config import (
 )
 
 from wellness_api.services.inference import predict_stress_ensemble
-
-from wellness_api.services.storage import (
-    init_db,
-    upsert_day,
-    get_last_n_days,
-    insert_alert,
-    get_alerts,
-    get_unread_count,
-    mark_alerts_read,
+from firestore_storage import (
+    upsert_daily_metric_fs,
+    insert_vital_stream_fs,
+    get_last_n_days_fs,
+    get_activity_history_fs,
+    get_previous_stress_level_fs,
+    get_previous_stress_snapshot_fs,
+    insert_alert_fs,
+    insert_activity_fs,
+    get_alerts_fs,
+    get_unread_count_fs,
+    mark_alerts_read_fs,
+    get_user_profile_fs,
+    get_user_profile_by_email_fs,
+    get_user_profile_by_username_fs,
+    save_email_otp_fs,
+    verify_email_otp_fs,
+    save_signup_otp_fs,
+    verify_signup_otp_fs,
+    generate_otp,
 )
-from wellness_api.services.alerts import detect_stress_change
+from wellness_api.services.notify_sms import send_notify_sms, normalize_sms_phone
+from wellness_api.services.email_service import send_otp_email
+from firebase_admin_client import get_firebase_admin_auth, get_firestore_db
 
 app = FastAPI(title="IVF Stress + Activity API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:8081",
-        "http://localhost:8082",
-        "http://localhost:8083",
-        "http://localhost:8084",
-        "http://localhost:8085",
-        "http://localhost:8086",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8081",
-        "http://127.0.0.1:8082",
-        "http://127.0.0.1:8083",
-        "http://127.0.0.1:8084",
-        "http://127.0.0.1:8085",
-        "http://127.0.0.1:8086",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-init_db()
+
+def normalize_stress_label(label):
+    if label is None:
+        return "Medium"
+
+    if isinstance(label, (int, float)):
+        if int(label) == 0:
+            return "Low"
+        if int(label) == 1:
+            return "High"
+        if int(label) == 2:
+            return "Medium"
+
+    s = str(label).strip().lower()
+
+    if s in ["low", "0"]:
+        return "Low"
+    if s in ["high", "1"]:
+        return "High"
+    if s in ["medium", "moderate", "2"]:
+        return "Medium"
+
+    if s == "unknown":
+        return "Unknown"
+
+    return "Medium"
+
+
+def stress_label_to_code(label: str):
+    label = normalize_stress_label(label)
+    if label == "Low":
+        return 0
+    if label == "High":
+        return 1
+    return 2
+
+
+def stress_label_to_percent(label: str) -> int:
+    label = normalize_stress_label(label)
+    if label == "Low":
+        return 20
+    if label == "Medium":
+        return 55
+    if label == "High":
+        return 85
+    return 0
+
+
+def normalize_stress_percent(value) -> int:
+    try:
+        percent = int(round(float(value)))
+    except Exception:
+        return 0
+    return max(0, min(100, percent))
+
+
+def stress_percent_to_label(value) -> str:
+    percent = normalize_stress_percent(value)
+    if percent < 35:
+        return "Low"
+    if percent < 70:
+        return "Medium"
+    return "High"
+
+
+def fallback_stress_from_metrics(req: PredictRequest):
+    hr = float(req.HR_sensor or 0)
+    hrv = float(req.Heart_Rate_Variability or 0)
+    sleep = float(req.Sleep_Hours or 0)
+    steps = float(req.steps_sensor or 0)
+
+    score = 0
+
+    if hr > 95:
+        score += 2
+    elif hr > 85:
+        score += 1
+
+    if hrv < 20:
+        score += 2
+    elif hrv < 35:
+        score += 1
+
+    if sleep < 5:
+        score += 2
+    elif sleep < 6:
+        score += 1
+
+    if steps < 2500:
+        score += 1
+
+    if score >= 4:
+        return "High"
+    if score <= 1:
+        return "Low"
+    return "Medium"
+
+
+def has_valid_predict_inputs(req: PredictRequest):
+    return req.HR_sensor > 0 and req.Heart_Rate_Variability > 0
 
 
 def infer_category_from_activity(activity_name: str) -> str:
@@ -87,6 +198,121 @@ def infer_category_from_activity(activity_name: str) -> str:
         return "Wellness"
 
     return "Wellness"
+
+
+def detect_stress_change_message(prev_level: str | None, current_level: str) -> str | None:
+    current_level = normalize_stress_label(current_level)
+    prev_norm = normalize_stress_label(prev_level) if prev_level else None
+
+    if prev_norm is None or prev_norm == "Unknown":
+        return None
+
+    if prev_norm == current_level:
+        return None
+
+    if prev_norm == "Low" and current_level == "Medium":
+        return "Your stress has increased slightly today."
+    if prev_norm == "Low" and current_level == "High":
+        return "Your stress has increased significantly today."
+    if prev_norm == "Medium" and current_level == "High":
+        return "Your stress has moved into a high range today."
+    if prev_norm == "High" and current_level == "Medium":
+        return "Good sign — your stress looks a little lower today."
+    if prev_norm == "High" and current_level == "Low":
+        return "Great progress — your stress has reduced a lot today."
+    if prev_norm == "Medium" and current_level == "Low":
+        return "Good sign — your stress looks a little lower today."
+
+    return None
+
+
+def build_sms_alert_message(
+    full_name: str | None,
+    stress_percent: int,
+    user_profile: dict | None = None,
+) -> str:
+    profile = user_profile or {}
+    first_name = str(profile.get("firstName") or "").strip()
+    last_name = str(profile.get("lastName") or "").strip()
+    derived_name = " ".join(part for part in [first_name, last_name] if part).strip()
+    patient_name = (full_name or derived_name or "The patient").strip() or "The patient"
+    return (
+        f"Momera Alert: {patient_name} is showing high stress "
+        f"({normalize_stress_percent(stress_percent)}%). Please check on her and offer support."
+    )
+
+
+def get_guardian_sms_phones(user_profile: dict) -> list[str]:
+    phones = []
+    for value in [
+        user_profile.get("primaryPhone"),
+        user_profile.get("secondaryPhone"),
+    ]:
+        phone = str(value or "").strip()
+        if phone and phone not in phones:
+            phones.append(phone)
+    return phones
+
+
+def normalize_email_value(value: str | None) -> str:
+    return str(value or "").strip().lower()
+
+
+def normalize_digits(value: str | None) -> str:
+    return "".join(ch for ch in str(value or "") if ch.isdigit())
+
+
+def is_strong_password(value: str) -> bool:
+    password = str(value or "").strip()
+    return (
+        len(password) >= 8
+        and any(ch.isupper() for ch in password)
+        and any(ch.islower() for ch in password)
+        and any(ch.isdigit() for ch in password)
+        and any(not ch.isalnum() for ch in password)
+    )
+
+
+def build_firebase_password(email: str, pin: str) -> str:
+    normalized_email = normalize_email_value(email)
+    email_prefix = normalized_email.split("@")[0] or "momera"
+    safe_pin = str(pin or "").strip()
+    if is_strong_password(safe_pin):
+        return safe_pin
+    return f"Momera_{safe_pin}_{email_prefix}"
+
+
+@app.post("/auth/resolve-login-id", response_model=ResolveLoginIdResponse)
+@app.post("/wellness/auth/resolve-login-id", response_model=ResolveLoginIdResponse)
+def auth_resolve_login_id(req: ResolveLoginIdRequest):
+    login_id = str(req.loginId or "").strip()
+    if not login_id:
+        raise HTTPException(status_code=400, detail="Login ID is required")
+
+    if "@" in login_id:
+        normalized_email = normalize_email_value(login_id)
+        return ResolveLoginIdResponse(status="ok", email=normalized_email)
+
+    profile = get_user_profile_by_username_fs(login_id)
+    email = normalize_email_value(profile.get("email"))
+    if not email:
+        raise HTTPException(status_code=404, detail="Username not found")
+
+    return ResolveLoginIdResponse(status="ok", email=email)
+
+
+def local_date_from_iso(value: str | None) -> str:
+    if not value:
+        return datetime.now().date().isoformat()
+
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return dt.date().isoformat()
+    except Exception:
+        try:
+            return str(value).split("T")[0]
+        except Exception:
+            return datetime.now().date().isoformat()
 
 
 class ActivityRecommender:
@@ -106,7 +332,7 @@ class ActivityRecommender:
         with open(ACTIVITY_XGB_CATALOG_PATH, "r", encoding="utf-8") as f:
             self.catalog = json.load(f)
 
-    def _vectorize(self, metrics: dict) -> pd.DataFrame:
+    def _vectorize(self, metrics: dict):
         base = {
             "isWeekend": 0,
             "caffeineMg": 0,
@@ -137,19 +363,19 @@ class ActivityRecommender:
 
         row = []
         for c in self.feature_columns:
-            v = metrics.get(c, base.get(c, 0))
-            if isinstance(v, str):
-                try:
-                    v = float(v)
-                except Exception:
-                    v = 0
-            row.append(v)
+          v = metrics.get(c, base.get(c, 0))
+          if isinstance(v, str):
+              try:
+                  v = float(v)
+              except Exception:
+                  v = 0
+          row.append(v)
 
         X = pd.DataFrame([row], columns=self.feature_columns)
         X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
         return X
 
-    def recommend(self, metrics: dict, topk: int = 3) -> dict:
+    def recommend(self, metrics: dict, topk: int = 3):
         X = self._vectorize(metrics)
         dmatrix = xgb.DMatrix(X)
         proba = self.model.predict(dmatrix)[0]
@@ -184,21 +410,6 @@ class ActivityRecommender:
             "top3": top_items,
         }
 
-    def list_catalog(self):
-        out = []
-        for k, v in (self.catalog or {}).items():
-            out.append(
-                {
-                    "id": k,
-                    "title": k,
-                    "description": v.get("description") or "",
-                    "durationMin": int(v.get("duration_min") or 10),
-                    "category": infer_category_from_activity(k),
-                }
-            )
-        out.sort(key=lambda x: (x["category"], x["title"]))
-        return out
-
 
 try:
     activity_recommender = ActivityRecommender()
@@ -207,130 +418,243 @@ except Exception as e:
     print("[WARN] ActivityRecommender init failed:", str(e))
 
 
-def is_watch_offline(req: PredictRequest) -> bool:
-    return (
-        req.HR_sensor <= 0
-        and req.Heart_Rate_Variability <= 0
-        and req.Sleep_Hours <= 0
-        and req.steps_sensor <= 0
-    )
-
-
-def stress_label_to_code(label: str) -> int:
-    s = (label or "").strip().lower()
-    if s == "low":
-        return 0
-    if s == "high":
-        return 1
-    if s == "medium":
-        return 2
-    return 0
-
-
 @app.post("/predict", response_model=PredictResponse)
+@app.post("/wellness/predict", response_model=PredictResponse)
 def predict_stress(req: PredictRequest):
-    if is_watch_offline(req):
-        return {
-            "currentStressLevel": "Unknown",
-            "activitySuggested": "Breathing Exercise",
-            "activityDescription": "Try slow breathing for 5–10 minutes.",
-            "activityGoal": "Reduce stress",
-            "activityDurationMin": 10,
-            "supportMessage": "Take it slowly. You’re doing fine.",
-            "category": "Mindfulness",
-            "unreadCount": get_unread_count(req.userId),
-            "alert": None,
-        }
-
     try:
-        stress_out = predict_stress_ensemble(req)
-        result_stress = str(stress_out.get("finalStressLabel", "Unknown"))
-    except Exception as e:
-        print("[ERROR] Stress inference failed:", str(e))
-        result_stress = "Unknown"
-
-    metrics = {
-        "HR_sensor": req.HR_sensor,
-        "Heart_Rate_Variability": req.Heart_Rate_Variability,
-        "Sleep_Hours": req.Sleep_Hours,
-        "steps_sensor": req.steps_sensor,
-        "CurrentStressLevel": stress_label_to_code(result_stress),
-    }
-
-    if activity_recommender is not None:
-        rec = activity_recommender.recommend(metrics, topk=3)
-    else:
-        rec = {
-            "activitySuggested": "Breathing Exercise",
-            "confidence": 0.0,
-            "activityDescription": "Try 5–10 minutes of slow breathing to settle your nervous system.",
-            "activityGoal": "Reduce stress",
-            "activityDurationMin": 10,
-            "supportMessage": "Take it slowly. You’re doing fine.",
-            "category": "Mindfulness",
-            "top3": [],
-        }
-
-    date_only = (req.dateTimeISO or "")[:10] if req.dateTimeISO else ""
-
-    if date_only and result_stress != "Unknown":
-        upsert_day(
+        date_iso = local_date_from_iso(req.dateTimeISO)
+        watch_stress_percent = normalize_stress_percent(req.stressPercent)
+        print(
+            "[predict] incoming",
             {
-                "user_id": req.userId,
-                "date_iso": date_only,
+                "userId": req.userId,
+                "dateISO": date_iso,
                 "hr": req.HR_sensor,
                 "hrv": req.Heart_Rate_Variability,
                 "sleep": req.Sleep_Hours,
                 "steps": req.steps_sensor,
-                "stress_level": result_stress,
-                "activity_suggested": rec.get("activitySuggested"),
-                "confidence": rec.get("confidence"),
-            }
+                "watchStressPercent": watch_stress_percent,
+            },
         )
 
-    alert = None
-    if result_stress != "Unknown":
-        alert = detect_stress_change(req.userId, result_stress)
-        if alert and date_only:
-            insert_alert(
+        if not has_valid_predict_inputs(req):
+            result_stress = fallback_stress_from_metrics(req)
+        else:
+            try:
+                stress_out = predict_stress_ensemble(req)
+                raw_label = stress_out.get("finalStressLabel")
+                result_stress = normalize_stress_label(raw_label)
+            except Exception:
+                result_stress = fallback_stress_from_metrics(req)
+
+        prev_level = None
+        prev_watch_stress_percent = 0
+        try:
+            prev_snapshot = get_previous_stress_snapshot_fs(req.userId, date_iso)
+            prev_level = prev_snapshot.get("stressLevel")
+            prev_watch_stress_percent = normalize_stress_percent(prev_snapshot.get("stressPercent"))
+        except Exception:
+            prev_level = None
+            prev_watch_stress_percent = 0
+
+        alert_payload = None
+        alert_msg = detect_stress_change_message(prev_level, result_stress)
+        print(
+            "[predict] classified",
+            {
+                "prevLevel": prev_level,
+                "currentLevel": result_stress,
+                "prevWatchStressPercent": prev_watch_stress_percent,
+                "alertMsg": alert_msg,
+            },
+        )
+
+        rec = {
+            "activitySuggested": None,
+            "confidence": 0.0,
+            "activityDescription": None,
+            "activityGoal": None,
+            "activityDurationMin": None,
+            "supportMessage": None,
+            "category": None,
+            "top3": [],
+        }
+
+        if alert_msg:
+            metrics = {
+                "HR_sensor": req.HR_sensor,
+                "Heart_Rate_Variability": req.Heart_Rate_Variability,
+                "Sleep_Hours": req.Sleep_Hours,
+                "steps_sensor": req.steps_sensor,
+                "CurrentStressLevel": stress_label_to_code(result_stress),
+            }
+
+            if activity_recommender is not None:
+                try:
+                    rec = activity_recommender.recommend(metrics, topk=3)
+                except Exception:
+                    rec = {
+                        "activitySuggested": "Breathing Exercise",
+                        "confidence": 0.0,
+                        "activityDescription": "Take a few slow breaths and relax",
+                        "activityGoal": "Reduce stress",
+                        "activityDurationMin": 10,
+                        "supportMessage": "Take it easy today",
+                        "category": "Mindfulness",
+                        "top3": [],
+                    }
+            else:
+                rec = {
+                    "activitySuggested": "Breathing Exercise",
+                    "confidence": 0.0,
+                    "activityDescription": "Take a few slow breaths and relax",
+                    "activityGoal": "Reduce stress",
+                    "activityDurationMin": 10,
+                    "supportMessage": "Take it easy today",
+                    "category": "Mindfulness",
+                    "top3": [],
+                }
+
+        try:
+            upsert_daily_metric_fs(
                 user_id=req.userId,
-                date_iso=date_only,
-                from_level=alert.get("from"),
-                to_level=alert.get("to"),
-                message=alert.get("message"),
+                date_iso=date_iso,
+                hr=float(req.HR_sensor or 0),
+                hrv=float(req.Heart_Rate_Variability or 0),
+                sleep_hours=float(req.Sleep_Hours or 0),
+                steps=float(req.steps_sensor or 0),
+                stress_level=result_stress,
+                stress_percent=watch_stress_percent or stress_label_to_percent(result_stress),
+                activity_suggested=rec.get("activitySuggested"),
+                category=rec.get("category"),
+                support_message=rec.get("supportMessage"),
             )
+            print("[predict] daily metric saved")
+        except Exception as e:
+            print("daily save failed:", e)
 
-    unread = get_unread_count(req.userId)
+        try:
+            insert_vital_stream_fs(
+                user_id=req.userId,
+                date_iso=date_iso,
+                hr=float(req.HR_sensor or 0),
+                hrv=float(req.Heart_Rate_Variability or 0),
+                sleep_hours=float(req.Sleep_Hours or 0),
+                steps=float(req.steps_sensor or 0),
+                stress_level=result_stress,
+                stress_percent=watch_stress_percent or stress_label_to_percent(result_stress),
+                activity_suggested=rec.get("activitySuggested"),
+                category=rec.get("category"),
+                support_message=rec.get("supportMessage"),
+            )
+            print("[predict] vital stream saved")
+        except Exception as e:
+            print("stream save failed:", e)
 
-    return {
-        "currentStressLevel": result_stress,
-        "activitySuggested": rec.get("activitySuggested"),
-        "activityDescription": rec.get("activityDescription"),
-        "activityGoal": rec.get("activityGoal"),
-        "activityDurationMin": rec.get("activityDurationMin"),
-        "supportMessage": rec.get("supportMessage"),
-        "category": rec.get("category"),
-        "unreadCount": unread,
-        "alert": alert,
-    }
+        try:
+            if alert_msg:
+                insert_alert_fs(
+                    user_id=req.userId,
+                    date_iso=date_iso,
+                    from_level=prev_level,
+                    to_level=result_stress,
+                    message=alert_msg,
+                )
+                alert_payload = {
+                    "from": normalize_stress_label(prev_level) if prev_level else None,
+                    "to": result_stress,
+                    "message": alert_msg,
+                }
+                if rec.get("activitySuggested"):
+                    insert_activity_fs(
+                        user_id=req.userId,
+                        date_iso=date_iso,
+                        title=rec.get("activitySuggested"),
+                        description=rec.get("activityDescription") or rec.get("supportMessage"),
+                        duration_min=rec.get("activityDurationMin"),
+                        category=rec.get("category"),
+                    )
+                    print(
+                        "[predict] alert + activity created",
+                        {
+                            "activity": rec.get("activitySuggested"),
+                            "category": rec.get("category"),
+                        },
+                    )
+                else:
+                    print("[predict] alert created but no activity suggested")
+            else:
+                print("[predict] no alert/activity created because stress did not change")
+        except Exception as e:
+            print("alert generation failed:", e)
+
+        try:
+            user_profile = get_user_profile_fs(req.userId)
+            sms_enabled = bool(user_profile.get("whatsappAlertsEnabled", True))
+            sms_phones = get_guardian_sms_phones(user_profile)
+
+            if sms_enabled and sms_phones and watch_stress_percent > 70:
+                sms_message = build_sms_alert_message(
+                    full_name=user_profile.get("fullName"),
+                    stress_percent=watch_stress_percent,
+                    user_profile=user_profile,
+                )
+                for phone in sms_phones:
+                    sms_result = send_notify_sms(
+                        phone=phone,
+                        message=sms_message,
+                    )
+                    if not sms_result.get("sent"):
+                        print("notify sms send skipped/failed:", sms_result)
+                print("[predict] notify sms auto-send attempted", {"phones": sms_phones})
+            else:
+                print(
+                    "[predict] notify sms skipped",
+                    {
+                        "enabled": sms_enabled,
+                        "phones": sms_phones,
+                        "watchStressPercent": watch_stress_percent,
+                    },
+                )
+        except Exception as e:
+            print("notify sms alert send failed:", e)
+
+        unread_count = 0
+        try:
+            unread_count = get_unread_count_fs(req.userId)
+        except Exception:
+            unread_count = 0
+
+        return {
+            "currentStressLevel": result_stress,
+            "activitySuggested": rec.get("activitySuggested"),
+            "activityDescription": rec.get("activityDescription"),
+            "activityGoal": rec.get("activityGoal"),
+            "activityDurationMin": rec.get("activityDurationMin"),
+            "supportMessage": rec.get("supportMessage"),
+            "category": rec.get("category"),
+            "unreadCount": unread_count,
+            "alert": alert_payload,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/activity/recommend", response_model=ActivityRecommendResponse)
+@app.post("/wellness/activity/recommend", response_model=ActivityRecommendResponse)
 def recommend_activity(req: ActivityRecommendRequest):
     if activity_recommender is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Activity recommender not initialized (missing artifacts?)",
-        )
+        raise HTTPException(status_code=500, detail="Activity recommender not initialized")
 
     if not req.metrics:
         return {
             "activitySuggested": "Breathing Exercise",
             "confidence": 0.0,
-            "activityDescription": "Try 5–10 minutes of slow breathing to settle your nervous system.",
+            "activityDescription": "Try 5-10 minutes of slow breathing to settle your nervous system.",
             "activityGoal": "Reduce stress",
             "activityDurationMin": 10,
-            "supportMessage": "Take it slowly. You’re doing fine.",
+            "supportMessage": "Take it slowly. You are doing fine.",
             "category": "Mindfulness",
             "top3": [],
         }
@@ -338,54 +662,78 @@ def recommend_activity(req: ActivityRecommendRequest):
     return activity_recommender.recommend(req.metrics, topk=3)
 
 
-@app.get("/activities/list", response_model=ActivitiesListResponse)
-def activities_list():
-    if activity_recommender is None:
-        return {"activities": []}
-
-    items = []
-    for row in activity_recommender.list_catalog():
-        items.append(ActivityCatalogItem(**row))
-
-    return {"activities": items}
-
-
 @app.post("/weekly-report", response_model=WeeklyReportResponse)
+@app.post("/wellness/weekly-report", response_model=WeeklyReportResponse)
 def weekly_report(req: WeeklyReportRequest):
-    rows = get_last_n_days(req.userId, n=req.days)
+    try:
+        rows = get_last_n_days_fs(req.userId, days=req.days)
+    except (PermissionDenied, ResourceExhausted) as e:
+        print("weekly_report firestore unavailable:", e)
+        rows = []
 
     points = []
     for r in rows:
         points.append(
             DayPoint(
-                dateISO=r.get("date_iso"),
-                HR=r.get("hr"),
-                HRV=r.get("hrv"),
-                SleepHours=r.get("sleep"),
-                Steps=r.get("steps"),
-                StressLevel=r.get("stress_level"),
+                dateISO=r.get("dateISO"),
+                HR=r.get("HR"),
+                HRV=r.get("HRV"),
+                SleepHours=r.get("SleepHours"),
+                Steps=r.get("Steps"),
+                StressLevel=r.get("StressLevel", "Unknown"),
             )
         )
 
     return {"userId": req.userId, "days": req.days, "points": points}
 
 
+@app.post("/activities/list", response_model=ActivitiesListResponse)
+@app.post("/wellness/activities/list", response_model=ActivitiesListResponse)
+def activities_list(req: AlertsListRequest):
+    try:
+        rows = get_activity_history_fs(req.userId, limit_n=req.limit or 50)
+    except (PermissionDenied, ResourceExhausted) as e:
+        print("activities_list firestore unavailable:", e)
+        rows = []
+
+    items = []
+    for r in rows:
+        items.append(
+            ActivityCatalogItem(
+                id=r.get("id", ""),
+                title=r.get("title", "Wellness Activity"),
+                description=r.get("description") or "No description available.",
+                durationMin=int(r.get("durationMin") or 10),
+                category=r.get("category") or "Wellness",
+                createdAt=r.get("createdAt"),
+            )
+        )
+
+    return {"activities": items}
+
+
 @app.post("/alerts/list", response_model=AlertsListResponse)
+@app.post("/wellness/alerts/list", response_model=AlertsListResponse)
 def alerts_list(req: AlertsListRequest):
-    rows = get_alerts(req.userId, limit=req.limit)
-    unread = get_unread_count(req.userId)
+    try:
+        rows = get_alerts_fs(req.userId, limit_n=req.limit or 50)
+        unread = get_unread_count_fs(req.userId)
+    except (PermissionDenied, ResourceExhausted) as e:
+        print("alerts_list firestore unavailable:", e)
+        rows = []
+        unread = 0
 
     items = []
     for r in rows:
         items.append(
             AlertItem(
                 id=r["id"],
-                dateISO=r["date_iso"],
-                fromLevel=r.get("from_level"),
-                toLevel=r.get("to_level"),
+                dateISO=r["dateISO"],
+                fromLevel=normalize_stress_label(r.get("fromLevel")) if r.get("fromLevel") else None,
+                toLevel=normalize_stress_label(r.get("toLevel")) if r.get("toLevel") else None,
                 message=r["message"],
-                isRead=bool(r["is_read"]),
-                createdAt=r["created_at"],
+                isRead=bool(r["isRead"]),
+                createdAt=r["createdAt"],
             )
         )
 
@@ -393,6 +741,216 @@ def alerts_list(req: AlertsListRequest):
 
 
 @app.post("/alerts/mark-read", response_model=AlertsMarkReadResponse)
+@app.post("/wellness/alerts/mark-read", response_model=AlertsMarkReadResponse)
 def alerts_mark_read(req: AlertsMarkReadRequest):
-    mark_alerts_read(req.userId)
+    try:
+        mark_alerts_read_fs(req.userId)
+    except (PermissionDenied, ResourceExhausted) as e:
+        print("alerts_mark_read firestore unavailable:", e)
     return {"status": "ok"}
+
+
+@app.post("/alerts/test-sms", response_model=SmsTestResponse)
+@app.post("/wellness/alerts/test-sms", response_model=SmsTestResponse)
+@app.post("/alerts/test-whatsapp", response_model=SmsTestResponse)
+@app.post("/wellness/alerts/test-whatsapp", response_model=SmsTestResponse)
+def alerts_test_sms(req: SmsTestRequest):
+    sms_phones = []
+    user_profile = {}
+    try:
+        user_profile = get_user_profile_fs(req.userId)
+    except (PermissionDenied, ResourceExhausted) as e:
+        if not req.phones:
+            raise HTTPException(status_code=503, detail=f"Firestore unavailable: {e}")
+        user_profile = {}
+
+    if req.phones:
+        sms_phones = list(dict.fromkeys([str(phone).strip() for phone in req.phones if str(phone).strip()]))
+    else:
+        try:
+            if not user_profile:
+                user_profile = get_user_profile_fs(req.userId)
+        except (PermissionDenied, ResourceExhausted) as e:
+            raise HTTPException(status_code=503, detail=f"Firestore unavailable: {e}")
+
+        if not user_profile:
+            raise HTTPException(status_code=404, detail="User profile not found")
+
+        sms_enabled = bool(user_profile.get("whatsappAlertsEnabled", True))
+        if not sms_enabled:
+            raise HTTPException(status_code=400, detail="SMS alerts are disabled for this user")
+
+        sms_phones = get_guardian_sms_phones(user_profile)
+
+    if not sms_phones:
+        raise HTTPException(status_code=400, detail="No guardian phone numbers found for this user")
+
+    result_items = []
+    for phone in sms_phones:
+        result = send_notify_sms(
+            phone=phone,
+            message=req.message
+            or build_sms_alert_message(
+                full_name=user_profile.get("fullName"),
+                stress_percent=82,
+                user_profile=user_profile,
+            ),
+        )
+        result_items.append(result)
+
+    failed = [item for item in result_items if not item.get("sent")]
+    if failed:
+        first_failed = failed[0]
+        raise HTTPException(
+            status_code=502,
+            detail=f"SMS send failed: {first_failed.get('reason')} {first_failed.get('details', '')}".strip(),
+        )
+
+    return {
+        "status": "sent",
+        "phone": sms_phones[0],
+        "phones": sms_phones,
+        "details": f"SMS test message sent successfully to {len(sms_phones)} guardian number(s)",
+        "metaResponse": {
+            "results": [item.get("response") or {} for item in result_items],
+        },
+    }
+
+
+@app.post("/auth/forgot-pin", response_model=ForgotPinResponse)
+@app.post("/wellness/auth/forgot-pin", response_model=ForgotPinResponse)
+def forgot_pin(req: ForgotPinRequest):
+    login_id = str(req.loginId or "").strip()
+    primary_phone = normalize_digits(req.primaryPhone)
+    new_secret = str(req.newPassword or req.newPin or "").strip()
+
+    if not login_id or not primary_phone or not new_secret:
+        raise HTTPException(status_code=400, detail="Email or username, primary phone, and new password are required")
+
+    if not is_strong_password(new_secret):
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be at least 8 characters and include uppercase, lowercase, number, and symbol",
+        )
+
+    try:
+        if "@" in login_id:
+            profile = get_user_profile_by_email_fs(login_id)
+        else:
+            profile = get_user_profile_by_username_fs(login_id)
+    except (PermissionDenied, ResourceExhausted) as e:
+        raise HTTPException(status_code=503, detail=f"Firestore unavailable: {e}")
+
+    if not profile:
+        raise HTTPException(status_code=404, detail="User profile not found for this email or username")
+
+    saved_primary_phone = normalize_digits(profile.get("primaryPhone"))
+    if saved_primary_phone != primary_phone:
+        raise HTTPException(status_code=400, detail="Primary phone number does not match our records")
+
+    uid = str(profile.get("uid") or "").strip()
+    if not uid:
+        raise HTTPException(status_code=500, detail="User UID missing in profile")
+
+    email = normalize_email_value(profile.get("email"))
+    if not email:
+        raise HTTPException(status_code=500, detail="User email missing in profile")
+
+    try:
+        admin_auth = get_firebase_admin_auth()
+        admin_auth.update_user(uid, password=build_firebase_password(email, new_secret))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reset password: {e}")
+
+    return {
+        "status": "ok",
+        "detail": "Password reset successfully. Please log in with your new password.",
+    }
+
+
+@app.post("/email-change/request", response_model=EmailChangeOtpResponse)
+@app.post("/wellness/email-change/request", response_model=EmailChangeOtpResponse)
+def email_change_request(req: EmailChangeRequestOtp):
+    user_id = str(req.userId or "").strip()
+    new_email = normalize_email_value(req.newEmail)
+
+    if not user_id or not new_email:
+        raise HTTPException(status_code=400, detail="userId and newEmail are required")
+
+    try:
+        admin_auth = get_firebase_admin_auth()
+        admin_auth.get_user(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"User not found: {e}")
+
+    otp = generate_otp(4)
+    save_email_otp_fs(user_id, new_email, otp)
+
+    sent = send_otp_email(new_email, otp)
+    if not sent:
+        raise HTTPException(status_code=500, detail="Failed to send OTP email. Check SMTP configuration.")
+
+    return {"status": "ok", "detail": f"OTP sent to {new_email}"}
+
+
+@app.post("/email-change/verify", response_model=EmailChangeOtpResponse)
+@app.post("/wellness/email-change/verify", response_model=EmailChangeOtpResponse)
+def email_change_verify(req: EmailChangeVerifyOtp):
+    user_id = str(req.userId or "").strip()
+    new_email = normalize_email_value(req.newEmail)
+    otp = str(req.otp or "").strip()
+
+    if not user_id or not new_email or not otp:
+        raise HTTPException(status_code=400, detail="userId, newEmail and otp are required")
+
+    if not verify_email_otp_fs(user_id, new_email, otp):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    try:
+        admin_auth = get_firebase_admin_auth()
+        admin_auth.update_user(user_id, email=new_email, email_verified=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update email: {e}")
+
+    try:
+        db = get_firestore_db()
+        db.collection("users").document(user_id).update({
+            "email": new_email,
+            "pendingEmail": "",
+        })
+    except Exception as e:
+        print(f"[email-change] Firestore profile update failed: {e}")
+
+    return {"status": "ok", "detail": "Email updated successfully"}
+
+
+@app.post("/signup/send-otp")
+@app.post("/wellness/signup/send-otp")
+def signup_send_otp(req: SignupSendOtpRequest):
+    phone = normalize_sms_phone(req.phone)
+    if not phone:
+        raise HTTPException(status_code=400, detail="Valid phone number required")
+
+    otp = generate_otp(4)
+    save_signup_otp_fs(phone, otp)
+
+    result = send_notify_sms(phone, f"Your Momera signup code is: {otp}. Valid for 5 minutes.")
+    if not result.get("sent"):
+        raise HTTPException(status_code=500, detail=f"Failed to send OTP SMS: {result.get('reason', 'unknown')}")
+
+    return {"status": "ok", "detail": f"OTP sent to {phone}"}
+
+
+@app.post("/signup/verify-otp")
+@app.post("/wellness/signup/verify-otp")
+def signup_verify_otp(req: SignupVerifyOtpRequest):
+    phone = normalize_sms_phone(req.phone)
+    otp = str(req.otp or "").strip()
+
+    if not phone or not otp:
+        raise HTTPException(status_code=400, detail="phone and otp are required")
+
+    if not verify_signup_otp_fs(phone, otp):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    return {"status": "ok", "detail": "Phone verified"}

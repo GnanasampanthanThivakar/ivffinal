@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { auth } from '../services/firebase';
+import { saveOnboardingProfile } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
 
@@ -35,11 +37,31 @@ export default function ProfileSetupStep3Screen({ navigation, route }) {
   const [consent, setConsent] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
       if (!consent) return;
-      setCalculating(true);
-      navigation.navigate('Loading', { ...params, bmi });
-      setTimeout(() => setCalculating(false), 500);
+      try {
+        setCalculating(true);
+        await saveOnboardingProfile(auth?.currentUser, {
+          name: params.name || '',
+          age: params.age || '',
+          height: params.height || '',
+          weight: params.weight || '',
+          amhLevel: params.amhLevel || '',
+          previousIVF: !!params.previousIVF,
+          eggsRetrieved: params.eggsRetrieved || '',
+          priorSAB: params.priorSAB || '',
+          freshD3CellCount: params.freshD3CellCount || '',
+          freshD3Fragmentation: params.freshD3Fragmentation || '',
+          calculatedVelocity: params.calculatedVelocity || '',
+          bmi,
+          consentAcceptedAt: new Date().toISOString(),
+        });
+        navigation.navigate('Loading', { ...params, bmi });
+      } catch (error) {
+        console.log('onboarding save error:', error);
+      } finally {
+        setCalculating(false);
+      }
   };
 
   const InfoRow = ({ label, value }) => (

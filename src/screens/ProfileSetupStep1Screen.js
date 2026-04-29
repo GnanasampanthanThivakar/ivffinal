@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { auth } from '../services/firebase';
+import { fetchUserProfile } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +23,32 @@ export default function ProfileSetupScreen({ navigation }) {
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('160');
   const [weight, setWeight] = useState('55');
+  const [prefillReady, setPrefillReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfile() {
+      try {
+        const profile = await fetchUserProfile(auth?.currentUser?.uid);
+        if (!active || !profile) return;
+
+        setName(profile.fullName || [profile.firstName, profile.lastName].filter(Boolean).join(' '));
+        setAge(profile.age ? String(profile.age) : '');
+        setHeight(profile?.onboarding?.height ? String(profile.onboarding.height) : '160');
+        setWeight(profile?.onboarding?.weight ? String(profile.onboarding.weight) : '55');
+      } catch (error) {
+        console.log('step1 prefill error:', error);
+      } finally {
+        if (active) setPrefillReady(true);
+      }
+    }
+
+    loadProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -124,6 +152,7 @@ export default function ProfileSetupScreen({ navigation }) {
               name, age, height, weight
             })}
             activeOpacity={0.9}
+            disabled={!prefillReady}
           >
             <LinearGradient
               colors={['#0D9488', '#14B8A6']}

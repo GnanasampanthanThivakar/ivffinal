@@ -29,14 +29,14 @@ ANFIS_LABEL_MAP_PATH = abs_from_app(os.getenv("ANFIS_LABEL_MAP_PATH"))
 ANFIS_META_PATH = abs_from_app(os.getenv("ANFIS_META_PATH"))
 
 # -------------------------
-# Stress XGBoost (NEW)
+# Stress XGBoost
 # -------------------------
 STRESS_XGB_MODEL_PATH = abs_from_app(os.getenv("STRESS_XGB_MODEL_PATH"))
 STRESS_XGB_LABEL_MAP_PATH = abs_from_app(os.getenv("STRESS_XGB_LABEL_MAP_PATH"))
 STRESS_XGB_META_PATH = abs_from_app(os.getenv("STRESS_XGB_META_PATH"))
 
 # -------------------------
-# Ensemble weights (NEW: include XGB)
+# Ensemble weights
 # -------------------------
 ENSEMBLE_W_LSTM = float(os.getenv("ENSEMBLE_W_LSTM", "0.6"))
 ENSEMBLE_W_ANFIS = float(os.getenv("ENSEMBLE_W_ANFIS", "0.3"))
@@ -60,3 +60,11 @@ ACTIVITY_XGB_CATALOG_PATH = abs_from_app(
 ACTIVITY_XGB_META_PATH = abs_from_app(
     os.getenv("ACTIVITY_XGB_META_PATH", "models/activity_model_meta_v1.json")
 )
+
+# -------------------------
+# Notify.lk SMS
+# -------------------------
+NOTIFY_SMS_ENABLED = os.getenv("NOTIFY_SMS_ENABLED", "false").strip().lower() == "true"
+NOTIFY_SMS_USER_ID = os.getenv("NOTIFY_SMS_USER_ID", "").strip()
+NOTIFY_SMS_API_KEY = os.getenv("NOTIFY_SMS_API_KEY", "").strip()
+NOTIFY_SMS_SENDER_ID = os.getenv("NOTIFY_SMS_SENDER_ID", "").strip()

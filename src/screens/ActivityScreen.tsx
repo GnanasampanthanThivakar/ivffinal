@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -8,88 +9,177 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-import { apiActivitiesList, ActivityCatalogItem } from "../services/backendApi";
-import { getTodayFromWatchOrBackend } from "../services/watchData";
-
-type FilterKey = "Today" | "Week" | "Month";
-
-const userId = "user_1";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import {
+  clearLiveActivitiesUnreadVisualOnly,
+  getTodayFromWatchOrBackend,
+  getStoredRecommendationHistory,
+  markAllRecommendationsRead,
+  subscribeWatchLive,
+} from "../services/watchData";
+import { apiActivitiesList } from "../services/backendApi";
+import { auth } from "../services/firebase";
 
 function categoryColor(category: string) {
   if (category === "Mindfulness") {
     return {
       iconBg: "#F3ECFF",
-      accent: "#B39DDB",
-      chipBg: "#F5F0FF",
+      iconText: "#A78BFA",
+      badgeBg: "#F6F0FF",
+      badgeText: "#8B5CF6",
     };
   }
+
   if (category === "Movement") {
     return {
-      iconBg: "#FFF1E8",
-      accent: "#F4A77A",
-      chipBg: "#FFF5EE",
+      iconBg: "#FFF3EB",
+      iconText: "#F59E0B",
+      badgeBg: "#FFF7ED",
+      badgeText: "#EA580C",
     };
   }
+
   if (category === "Sleep") {
     return {
-      iconBg: "#E9F0FF",
-      accent: "#7FA7F7",
-      chipBg: "#EEF4FF",
+      iconBg: "#EEF4FF",
+      iconText: "#60A5FA",
+      badgeBg: "#EFF6FF",
+      badgeText: "#2563EB",
     };
   }
+
   return {
-    iconBg: "#E8F7F5",
-    accent: "#4DB6AC",
-    chipBg: "#EDF9F7",
+    iconBg: "#EAF8F5",
+    iconText: "#14B8A6",
+    badgeBg: "#F0FDFA",
+    badgeText: "#0F766E",
   };
 }
 
 function categoryIcon(category: string) {
-  if (category === "Mindfulness") return "✦";
-  if (category === "Movement") return "◌";
-  if (category === "Sleep") return "☾";
-  return "◍";
+  if (category === "Mindfulness") return "*";
+  if (category === "Movement") return "o";
+  if (category === "Sleep") return "z";
+  return "+";
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "Date unavailable";
+
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+
+  const date = d.toLocaleDateString([], {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  const time = d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return `${date} | ${time}`;
+}
+
+function toTs(value?: string) {
+  const time = new Date(value || "").getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function mapBackendActivity(item: any) {
+  const durationMin = Number(item?.durationMin ?? 10);
+  return {
+    id: String(item?.id || `${item?.title || "activity"}_${item?.createdAt || Date.now()}`),
+    title: item?.title || "Wellness Activity",
+    desc: item?.description || "No description available.",
+    category: item?.category || "Wellness",
+    duration: `${durationMin} min`,
+    durationMin,
+    startLabel: "Now",
+    supportMessage: item?.description || "",
+    createdAt: item?.createdAt || "",
+    isRead: true,
+  };
+}
+
+function mergeAndSortActivities(...groups: any[][]) {
+  const mergedMap = new Map<string, any>();
+
+  for (const group of groups) {
+    for (const item of group.filter(Boolean)) {
+      const key = String(item?.id || `${item?.title || "activity"}_${item?.createdAt || ""}`);
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, item);
+      }
+    }
+  }
+
+  return Array.from(mergedMap.values()).sort((a, b) => toTs(b?.createdAt) - toTs(a?.createdAt));
+}
+
+function hasAnyRealTodayData(today: any) {
+  return (
+    Number(today?.hr ?? 0) > 0 ||
+    Number(today?.hrv ?? 0) > 0 ||
+    Number(today?.sleepHours ?? 0) > 0 ||
+    Number(today?.steps ?? 0) > 0 ||
+    !!today?.modelReady
+  );
 }
 
 export default function ActivityScreen() {
-  const [items, setItems] = useState<ActivityCatalogItem[]>([]);
+  const navigation = useNavigation<any>();
+  const userId = auth?.currentUser?.uid || "";
+
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterKey>("Today");
-  const [topRecoTitle, setTopRecoTitle] = useState<string | null>(null);
-  const [topRecoDesc, setTopRecoDesc] = useState<string | null>(null);
-  const [topRecoDuration, setTopRecoDuration] = useState<string | null>(null);
-  const [topRecoCategory, setTopRecoCategory] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const liveRefreshAtRef = useRef(0);
 
   async function load() {
+    if (!userId) {
+      setRecommendations([]);
+      setErrorMsg("Please log in to view activity suggestions");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setErrorMsg(null);
 
-      const [res, today] = await Promise.all([
-        apiActivitiesList(),
+      const [today, storedHistory, activitiesRes] = await Promise.all([
         getTodayFromWatchOrBackend(userId),
+        getStoredRecommendationHistory(),
+        apiActivitiesList({ userId, limit: 50 }).catch(() => null),
       ]);
 
-      const list = res.activities ?? [];
-      setItems(list);
+      const liveHistory = Array.isArray(today?.recommendationHistory)
+        ? [...today.recommendationHistory]
+        : today?.recommendation
+        ? [today.recommendation]
+        : [];
 
-      if (today?.recommendation) {
-        setTopRecoTitle(today.recommendation.title ?? null);
-        setTopRecoDesc(today.recommendation.desc ?? null);
-        setTopRecoDuration(today.recommendation.duration ?? null);
-        setTopRecoCategory(today.recommendation.category ?? null);
-      } else {
-        setTopRecoTitle(null);
-        setTopRecoDesc(null);
-        setTopRecoDuration(null);
-        setTopRecoCategory(null);
+      const backendHistory = Array.isArray(activitiesRes?.activities)
+        ? activitiesRes.activities.map(mapBackendActivity)
+        : [];
+
+      const history =
+        hasAnyRealTodayData(today) || backendHistory.length
+          ? mergeAndSortActivities(liveHistory, backendHistory, storedHistory)
+          : [];
+
+      setRecommendations(history);
+
+      if (!history.length) {
+        setErrorMsg("No activity suggestions yet");
       }
-    } catch (e) {
-      console.log(e);
-      setErrorMsg("Failed to load activities");
-      setItems([]);
+    } catch (error) {
+      console.log(error);
+      setErrorMsg("Failed to load activity recommendation");
+      setRecommendations([]);
     } finally {
       setLoading(false);
     }
@@ -97,156 +187,119 @@ export default function ActivityScreen() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [userId]);
 
-  const personalizedItem = useMemo(() => {
-    if (!topRecoTitle) return null;
-    return items.find((x) => x.title === topRecoTitle) ?? null;
-  }, [items, topRecoTitle]);
+  useFocusEffect(
+    React.useCallback(() => {
+      clearLiveActivitiesUnreadVisualOnly();
+      markAllRecommendationsRead();
+      load();
+    }, [userId])
+  );
 
-  const recommendedForYou = useMemo(() => {
-    if (!personalizedItem) return items;
-    const rest = items.filter((x) => x.title !== personalizedItem.title);
-    return [personalizedItem, ...rest];
-  }, [items, personalizedItem]);
+  useEffect(() => {
+    if (!userId) return;
 
-  const grouped = useMemo(() => {
-    const g: Record<string, ActivityCatalogItem[]> = {
-      Mindfulness: [],
-      Movement: [],
-      Sleep: [],
-      Wellness: [],
-      Other: [],
-    };
+    const unsub = subscribeWatchLive(async () => {
+      const now = Date.now();
+      if (now - liveRefreshAtRef.current < 2000) return;
+      liveRefreshAtRef.current = now;
 
-    for (const it of recommendedForYou) {
-      if (g[it.category]) g[it.category].push(it);
-      else g.Other.push(it);
-    }
+      try {
+        clearLiveActivitiesUnreadVisualOnly();
+        markAllRecommendationsRead();
+        await load();
+      } catch (e) {
+        console.log("activity live refresh error:", e);
+      }
+    });
 
-    return g;
-  }, [recommendedForYou]);
+    return unsub;
+  }, [userId]);
 
-  const visibleSections = useMemo(() => {
-    if (filter === "Today") {
-      return [
-        { title: "Recommended for You", items: recommendedForYou.slice(0, 6) },
-      ];
-    }
-
-    if (filter === "Week") {
-      return [
-        { title: "Mindfulness", items: grouped.Mindfulness },
-        { title: "Movement", items: grouped.Movement },
-        { title: "Sleep", items: grouped.Sleep },
-        { title: "Wellness", items: grouped.Wellness },
-      ];
-    }
-
-    return [
-      { title: "All Activities", items: recommendedForYou },
-    ];
-  }, [filter, recommendedForYou, grouped]);
+  const latest = useMemo(() => recommendations[0], [recommendations]);
+  const historyOnly = useMemo(
+    () => (recommendations.length <= 1 ? [] : recommendations.slice(1)),
+    [recommendations]
+  );
 
   return (
     <SafeAreaView style={styles.safe}>
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" />
-          <Text style={{ marginTop: 10 }}>Loading activities...</Text>
-        </View>
-      ) : errorMsg ? (
-        <View style={styles.center}>
-          <Text style={{ fontWeight: "900" }}>{errorMsg}</Text>
-          <Text style={styles.errorSub}>Backend run ஆகணும் + activities API work ஆகணும்.</Text>
+          <ActivityIndicator size="large" color="#0D9488" />
+          <Text style={styles.loadingText}>Loading activity recommendations...</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 28 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}>
-            <Text style={styles.backText}>← Back</Text>
+            <LinearGradient
+              colors={["#146F6B", "#178E88", "#167A75"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroGradientBg}
+            />
+            <TouchableOpacity style={styles.backBtn} activeOpacity={0.8} onPress={() => navigation.goBack()}>
+              <Text style={styles.backText}>{"← Back"}</Text>
+            </TouchableOpacity>
 
             <View style={styles.heroTitleRow}>
-              <Text style={styles.heroTitle}>Activities</Text>
-              <View style={styles.personalChip}>
-                <Text style={styles.personalChipText}>AI Personalized</Text>
-              </View>
+              <Text style={styles.heroTitle}>Activity Suggestions</Text>
             </View>
 
             <Text style={styles.heroSub}>
-              Positive activities to nurture your wellness journey
+              Existing saved records and new live suggestions are both shown here in newest-first order.
             </Text>
           </View>
 
           <View style={styles.body}>
-            <View style={styles.personalizedCard}>
-              <View style={styles.personalizedIcon}>
-                <Text style={{ color: "#B39DDB", fontSize: 18 }}>✦</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.infoIconWrap}>
+                <Text style={styles.infoIcon}>*</Text>
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.personalizedTitle}>Personalized for You</Text>
-                <Text style={styles.personalizedDesc}>
-                  {topRecoDesc
-                    ? "Your latest stress-aware recommendation is ready. Follow this gentle activity to support your wellbeing."
-                    : "You're doing great! These activities will help you continue nurturing your wellbeing."}
+                <Text style={styles.infoTitle}>Personalized for You</Text>
+                <Text style={styles.infoDesc}>
+                  Offline old records and live activity suggestions are merged into one timeline.
                 </Text>
               </View>
             </View>
 
-            <View style={styles.filterRow}>
-              {(["Today", "Week", "Month"] as FilterKey[]).map((key) => {
-                const active = filter === key;
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    activeOpacity={0.85}
-                    onPress={() => setFilter(key)}
-                    style={[styles.filterBtn, active && styles.filterBtnActive]}
-                  >
-                    <Text style={[styles.filterText, active && styles.filterTextActive]}>
-                      {key}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {personalizedItem && filter === "Today" ? (
+            {latest ? (
               <View style={styles.sectionWrap}>
-                <Text style={styles.sectionTitle}>Recommended for You</Text>
-                <ActivityCard
-                  item={{
-                    ...personalizedItem,
-                    durationMin:
-                      Number(topRecoDuration?.replace(/\D/g, "")) || personalizedItem.durationMin,
-                    category: topRecoCategory || personalizedItem.category,
-                  }}
-                  highlight
-                />
-              </View>
-            ) : null}
+                <Text style={styles.sectionTitle}>Current Suggested Activity</Text>
+                <ActivityCard item={latest} highlight />
 
-            {visibleSections.map((section, idx) => {
-              const list =
-                personalizedItem && filter === "Today" && section.title === "Recommended for You"
-                  ? section.items.filter((x) => x.title !== personalizedItem.title)
-                  : section.items;
-
-              if (!list.length) return null;
-
-              return (
-                <View key={`${section.title}_${idx}`} style={styles.sectionWrap}>
-                  <Text style={styles.sectionTitle}>{section.title}</Text>
-                  {list.map((item) => (
-                    <ActivityCard key={item.id} item={item} />
-                  ))}
+                <View style={styles.historyHeader}>
+                  <Text style={styles.sectionTitleNoMargin}>Suggestion History</Text>
                 </View>
-              );
-            })}
 
-            {recommendedForYou.length === 0 ? (
-              <Text style={styles.emptyText}>No activities available right now.</Text>
-            ) : null}
+                {historyOnly.length > 0 ? (
+                  historyOnly.map((item, index) => (
+                    <ActivityCard
+                      key={item?.id || `${item?.title || "activity"}_${index}`}
+                      item={item}
+                    />
+                  ))
+                ) : (
+                  <View style={styles.emptyHistoryCard}>
+                    <Text style={styles.emptyHistoryText}>No older suggestions available yet.</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>{errorMsg || "No activity suggestion available."}</Text>
+                <Text style={styles.emptySub}>
+                  Connect the watch for new suggestions. Saved records will appear here whenever available.
+                </Text>
+
+                <TouchableOpacity activeOpacity={0.85} style={styles.retryBtn} onPress={load}>
+                  <Text style={styles.retryBtnText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </ScrollView>
       )}
@@ -254,248 +307,320 @@ export default function ActivityScreen() {
   );
 }
 
-function ActivityCard(props: { item: ActivityCatalogItem; highlight?: boolean }) {
-  const tone = categoryColor(props.item.category);
+function ActivityCard({ item, highlight = false }: { item: any; highlight?: boolean }) {
+  const category = item?.category ?? "Wellness";
+  const tone = categoryColor(category);
 
   return (
-    <View style={[styles.activityCard, props.highlight && styles.highlightCard]}>
-      <View style={styles.activityRow}>
-        <View style={[styles.activityIcon, { backgroundColor: tone.iconBg }]}>
-          <Text style={{ color: tone.accent, fontSize: 20 }}>{categoryIcon(props.item.category)}</Text>
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <View style={styles.activityTop}>
-            <Text style={styles.activityTitle}>{props.item.title}</Text>
-            <View style={styles.durationPill}>
-              <Text style={styles.durationText}>{props.item.durationMin} min</Text>
-            </View>
+    <View style={[styles.activityCard, highlight && styles.activityCardHighlight]}>
+      <View style={styles.cardTopRow}>
+        <View style={styles.cardTopLeft}>
+          <View style={[styles.activityIcon, { backgroundColor: tone.iconBg }]}>
+            <Text style={[styles.activityIconText, { color: tone.iconText }]}>{categoryIcon(category)}</Text>
           </View>
 
-          <Text style={styles.activityDesc}>{props.item.description}</Text>
-          <Text style={styles.activityCategory}>{props.item.category}</Text>
-
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[
-              styles.startBtn,
-              { backgroundColor: tone.accent },
-            ]}
-          >
-            <Text style={styles.startBtnText}>Start Activity</Text>
-          </TouchableOpacity>
+          <View style={styles.cardTitleWrap}>
+            <Text style={styles.activityTitle}>{item?.title ?? "Recommended Activity"}</Text>
+            <Text style={styles.activityDateText}>{formatDateTime(item?.createdAt)}</Text>
+          </View>
         </View>
+
+        <View style={styles.nowPill}>
+          <Text style={styles.nowPillText}>{item?.startLabel ?? "Now"}</Text>
+        </View>
+      </View>
+
+      <Text style={styles.activityDesc}>{item?.desc ?? "No description available."}</Text>
+
+      <View style={styles.metaRow}>
+        <View style={[styles.metaBadge, { backgroundColor: tone.badgeBg }]}>
+          <Text style={[styles.metaBadgeText, { color: tone.badgeText }]}>{category}</Text>
+        </View>
+
+        <View style={styles.dot} />
+
+        <Text style={styles.durationLabel}>Duration: {item?.duration ?? "10 min"}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F5F8FA" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-
+  safe: {
+    flex: 1,
+    backgroundColor: "#F4F7FB",
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: "#475569",
+    fontSize: 14,
+    fontFamily: "PlusJakartaSans_500Medium",
+  },
+  scrollContent: {
+    paddingBottom: 28,
+  },
   hero: {
-    backgroundColor: "#4FB1AF",
+    backgroundColor: "#178E88",
     paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 26,
+    paddingBottom: 28,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+    overflow: "hidden",
+    position: "relative",
+  },
+  heroGradientBg: {
+    ...StyleSheet.absoluteFillObject,
   },
   backText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: "PlusJakartaSans_700Bold",
     marginBottom: 18,
+  },
+  backBtn: {
+    alignSelf: "flex-start",
   },
   heroTitleRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
     flexWrap: "wrap",
   },
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 30,
-    fontFamily: 'PlusJakartaSans_800ExtraBold',
-  },
-  personalChip: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  personalChipText: {
-    color: "#4FB1AF",
-    fontFamily: 'PlusJakartaSans_700Bold',
-    fontSize: 13,
+    fontSize: 28,
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+    flexShrink: 1,
   },
   heroSub: {
     color: "#EAF9F8",
     fontSize: 14,
-    fontFamily: 'PlusJakartaSans_500Medium',
-    marginTop: 10,
     lineHeight: 20,
+    marginTop: 10,
+    fontFamily: "PlusJakartaSans_500Medium",
   },
-
   body: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: 18,
   },
-
-  personalizedCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 16,
-    flexDirection: "row",
-    gap: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  personalizedIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#F7F1FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  personalizedTitle: {
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: "#1F2A37",
-    marginBottom: 6,
-  },
-  personalizedDesc: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 20,
-    fontFamily: 'PlusJakartaSans_500Medium',
-  },
-
-  filterRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 18,
-    marginBottom: 8,
-  },
-  filterBtn: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-  },
-  filterBtnActive: {
-    backgroundColor: "#4FB1AF",
-  },
-  filterText: {
-    color: "#526277",
-    fontFamily: 'PlusJakartaSans_700Bold',
-  },
-  filterTextActive: {
-    color: "#FFFFFF",
-  },
-
-  sectionWrap: {
-    marginTop: 18,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans_700Bold',
-    color: "#1F2A37",
-    marginBottom: 12,
-  },
-
-  activityCard: {
+  infoCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  highlightCard: {
-    borderWidth: 1,
-    borderColor: "#DDEFEF",
-  },
-  activityRow: {
     flexDirection: "row",
-    gap: 14,
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 3,
   },
-  activityIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  infoIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#E6FFFB",
     alignItems: "center",
     justifyContent: "center",
   },
-  activityTop: {
+  infoIcon: {
+    fontSize: 18,
+    color: "#0D9488",
+  },
+  infoTitle: {
+    color: "#1E293B",
+    fontSize: 17,
+    marginBottom: 4,
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+  infoDesc: {
+    color: "#64748B",
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: "PlusJakartaSans_500Medium",
+  },
+  sectionWrap: {
+    marginTop: 20,
+  },
+  sectionTitle: {
+    color: "#1E293B",
+    fontSize: 17,
+    marginBottom: 12,
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+  sectionTitleNoMargin: {
+    color: "#1E293B",
+    fontSize: 17,
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+  historyHeader: {
+    marginTop: 8,
+    marginBottom: 12,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+  },
+  activityCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  activityCardHighlight: {
+    borderWidth: 1.2,
+    borderColor: "#D8F2ED",
+    shadowOpacity: 0.08,
+  },
+  cardTopRow: {
+    flexDirection: "row",
     alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  cardTopLeft: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    flex: 1,
+  },
+  activityIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activityIconText: {
+    fontSize: 21,
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+  cardTitleWrap: {
+    flex: 1,
+    paddingTop: 2,
   },
   activityTitle: {
-    flex: 1,
-    color: "#1F2A37",
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    color: "#1E293B",
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: "PlusJakartaSans_700Bold",
   },
-  durationPill: {
+  activityDateText: {
+    marginTop: 5,
+    color: "#94A3B8",
+    fontSize: 12,
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+  nowPill: {
     backgroundColor: "#F8FAFC",
-    borderColor: "#D7DEE8",
+    borderColor: "#E2E8F0",
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
   },
-  durationText: {
-    color: "#5B6677",
+  nowPillText: {
+    color: "#64748B",
     fontSize: 12,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: "PlusJakartaSans_700Bold",
   },
   activityDesc: {
-    marginTop: 8,
+    marginTop: 14,
     color: "#475569",
-    fontSize: 14,
-    lineHeight: 21,
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontSize: 15,
+    lineHeight: 23,
+    fontFamily: "PlusJakartaSans_500Medium",
   },
-  activityCategory: {
-    marginTop: 8,
-    color: "#7C8A9C",
-    fontFamily: 'PlusJakartaSans_700Bold',
+  metaRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  metaBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  metaBadgeText: {
+    fontSize: 12,
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 99,
+    backgroundColor: "#CBD5E1",
+    marginHorizontal: 10,
+  },
+  durationLabel: {
+    color: "#64748B",
     fontSize: 13,
+    fontFamily: "PlusJakartaSans_700Bold",
   },
-  startBtn: {
+  emptyHistoryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  emptyHistoryText: {
+    color: "#64748B",
+    fontSize: 14,
+    fontFamily: "PlusJakartaSans_500Medium",
+  },
+  emptyBox: {
+    marginTop: 18,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 18,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  emptyTitle: {
+    color: "#1E293B",
+    fontSize: 16,
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+  },
+  emptySub: {
+    marginTop: 8,
+    color: "#64748B",
+    lineHeight: 21,
+    fontSize: 14,
+    fontFamily: "PlusJakartaSans_500Medium",
+  },
+  retryBtn: {
     alignSelf: "flex-start",
     marginTop: 14,
+    backgroundColor: "#0D9488",
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
-  startBtnText: {
+  retryBtnText: {
     color: "#FFFFFF",
-    fontFamily: 'PlusJakartaSans_700Bold',
     fontSize: 14,
-  },
-
-  emptyText: {
-    marginTop: 20,
-    color: "#64748B",
-    fontWeight: "800",
-  },
-
-  errorSub: {
-    marginTop: 8,
-    color: "#64748B",
-    fontWeight: "700",
-    textAlign: "center",
+    fontFamily: "PlusJakartaSans_800ExtraBold",
   },
 });

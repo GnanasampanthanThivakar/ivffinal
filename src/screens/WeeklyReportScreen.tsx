@@ -1,19 +1,26 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Svg, { Polyline, Line, Circle } from "react-native-svg";
 
 import { apiWeeklyReport, WeeklyReportPoint } from "../services/backendApi";
+import { auth } from "../services/firebase";
+import { subscribeWatchLive } from "../services/watchData";
 
 type MetricCardProps = {
   title: string;
   unit: string;
   avgText: string;
+  avgValue: number;
   labels: string[];
   values: number[];
   advice: string;
@@ -50,6 +57,7 @@ function GraphCard({
   title,
   unit,
   avgText,
+  avgValue,
   labels,
   values,
   advice,
@@ -62,6 +70,10 @@ function GraphCard({
   const max = Math.max(...safeValues, 1);
   const min = Math.min(...safeValues, 0);
   const range = Math.max(max - min, 1);
+  const avgY =
+    CHART_H -
+    PAD_Y -
+    ((avgValue - min) / range) * (CHART_H - PAD_Y * 2);
 
   return (
     <View style={styles.metricCard}>
@@ -88,6 +100,17 @@ function GraphCard({
             y2={CHART_H - PAD_Y}
             stroke="#D6DEE6"
             strokeWidth="1"
+          />
+
+          <Line
+            x1={PAD_X}
+            y1={avgY}
+            x2={CHART_W - PAD_X}
+            y2={avgY}
+            stroke={lineColor}
+            strokeOpacity="0.35"
+            strokeWidth="2"
+            strokeDasharray="6 6"
           />
 
           <Polyline
@@ -127,6 +150,8 @@ function GraphCard({
             </Text>
           ))}
         </View>
+
+        <Text style={styles.avgGuideText}>Dashed line shows 7-day average</Text>
       </View>
 
       <View style={styles.tipBox}>
@@ -145,8 +170,9 @@ function stressToValue(s: string) {
 }
 
 function avg(nums: number[]) {
-  if (!nums.length) return 0;
-  return nums.reduce((a, b) => a + b, 0) / nums.length;
+  const valid = nums.filter((n) => Number(n) > 0);
+  if (!valid.length) return 0;
+  return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
 
 function shortDay(dateISO: string) {
@@ -155,41 +181,86 @@ function shortDay(dateISO: string) {
 }
 
 export default function WeeklyReportScreen() {
-  const userId = "user_1";
+  const navigation = useNavigation<any>();
+  const userId = auth?.currentUser?.uid || "";
 
   const [points, setPoints] = useState<WeeklyReportPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const liveRefreshAtRef = useRef(0);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        setErrorMsg(null);
-        const res = await apiWeeklyReport({ userId, days: 7 });
-        setPoints(res.points ?? []);
-      } catch (e) {
-        console.log(e);
-        setErrorMsg("Failed to load weekly report");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const load = useCallback(async (silent?: boolean) => {
+    if (!userId) {
+      setPoints([]);
+      setErrorMsg("Please log in to view weekly data");
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
 
-  const labels = useMemo(
-    () => points.map((p) => shortDay(p.dateISO)),
-    [points]
+    try {
+      if (silent) setRefreshing(true);
+      else setLoading(true);
+
+      setErrorMsg(null);
+      const res = await apiWeeklyReport({ userId, days: 7 });
+      setPoints(res.points ?? []);
+    } catch (e) {
+      console.log(e);
+      setErrorMsg("Failed to load weekly report");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+      return undefined;
+    }, [load])
   );
 
+  useEffect(() => {
+    if (!userId) return;
+
+    const unsub = subscribeWatchLive(async () => {
+      const now = Date.now();
+      if (now - liveRefreshAtRef.current < 3000) return;
+      liveRefreshAtRef.current = now;
+
+      try {
+        await load(true);
+      } catch (e) {
+        console.log("weekly live refresh error:", e);
+      }
+    });
+
+    return  () => { unsub(); };
+  }, [load, userId]);
+
+  const labels = useMemo(() => points.map((p) => shortDay(p.dateISO)), [points]);
   const hrValues = useMemo(() => points.map((p) => Number(p.HR ?? 0)), [points]);
   const hrvValues = useMemo(() => points.map((p) => Number(p.HRV ?? 0)), [points]);
   const sleepValues = useMemo(() => points.map((p) => Number(p.SleepHours ?? 0)), [points]);
   const stepsValues = useMemo(() => points.map((p) => Number(p.Steps ?? 0)), [points]);
-  const stressValues = useMemo(
-    () => points.map((p) => stressToValue(p.StressLevel)),
-    [points]
-  );
+  const stressValues = useMemo(() => points.map((p) => stressToValue(p.StressLevel)), [points]);
+  const avgHr = useMemo(() => Math.round(avg(hrValues)) || 0, [hrValues]);
+  const avgHrv = useMemo(() => Math.round(avg(hrvValues)) || 0, [hrvValues]);
+  const avgSleep = useMemo(() => avg(sleepValues).toFixed(1), [sleepValues]);
+  const avgSteps = useMemo(() => Math.round(avg(stepsValues)) || 0, [stepsValues]);
+
+  const hasAnyRealData = useMemo(() => {
+    return points.some((p) => {
+      return (
+        Number(p.HR ?? 0) > 0 ||
+        Number(p.HRV ?? 0) > 0 ||
+        Number(p.SleepHours ?? 0) > 0 ||
+        Number(p.Steps ?? 0) > 0
+      );
+    });
+  }, [points]);
 
   if (loading) {
     return (
@@ -209,27 +280,70 @@ export default function WeeklyReportScreen() {
   }
 
   return (
-    <ScrollView style={styles.safe} contentContainerStyle={{ paddingBottom: 30 }}>
+    <ScrollView
+      style={styles.safe}
+      contentContainerStyle={{ paddingBottom: 30 }}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />
+      }
+    >
       <View style={styles.hero}>
+        <LinearGradient
+          colors={["#146F6B", "#178E88", "#167A75"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroGradientBg}
+        />
+        <TouchableOpacity style={styles.backBtn} activeOpacity={0.8} onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>{"← Back"}</Text>
+        </TouchableOpacity>
+
         <Text style={styles.heroTitle}>Weekly Report</Text>
         <Text style={styles.heroSub}>Your wellness trends for the past 7 days</Text>
       </View>
 
-      {points.length === 0 ? (
+      {!hasAnyRealData ? (
         <View style={styles.emptyCard}>
           <Text style={{ color: "#64748B", fontWeight: "800" }}>
-            No weekly data yet. Watch connect பண்ணி சில நேரம் wait பண்ணுங்க.
+            No real weekly data yet. Connect the watch and wait for valid HR and HRV sync.
           </Text>
         </View>
       ) : (
         <>
+          <View style={styles.avgGrid}>
+            <View style={styles.avgCard}>
+              <Text style={styles.avgLabel}>Avg HR</Text>
+              <Text style={styles.avgValue}>{avgHr}</Text>
+              <Text style={styles.avgUnit}>bpm</Text>
+            </View>
+
+            <View style={styles.avgCard}>
+              <Text style={styles.avgLabel}>Avg HRV</Text>
+              <Text style={styles.avgValue}>{avgHrv}</Text>
+              <Text style={styles.avgUnit}>ms</Text>
+            </View>
+
+            <View style={styles.avgCard}>
+              <Text style={styles.avgLabel}>Avg Sleep</Text>
+              <Text style={styles.avgValue}>{avgSleep}</Text>
+              <Text style={styles.avgUnit}>hrs</Text>
+            </View>
+
+            <View style={styles.avgCard}>
+              <Text style={styles.avgLabel}>Avg Steps</Text>
+              <Text style={styles.avgValue}>{avgSteps}</Text>
+              <Text style={styles.avgUnit}>steps</Text>
+            </View>
+          </View>
+
           <GraphCard
             title="Heart Rate"
             unit="bpm"
-            avgText={`${Math.round(avg(hrValues))}`}
+            avgText={`${avgHr}`}
+            avgValue={avgHr}
             labels={labels}
             values={hrValues}
-            advice="Higher HR may indicate stress or hormonal changes. Stay hydrated and practice deep breathing."
+            advice="If HR rises or falls, the graph will update automatically from new backend data."
             lineColor="#F27C6B"
             pillBg="#FDE9E6"
           />
@@ -237,10 +351,11 @@ export default function WeeklyReportScreen() {
           <GraphCard
             title="Heart Rate Variability"
             unit="ms"
-            avgText={`${Math.round(avg(hrvValues))}`}
+            avgText={`${avgHrv}`}
+            avgValue={avgHrv}
             labels={labels}
             values={hrvValues}
-            advice="Good HRV supports resilience. Consistent sleep and relaxation can help improve it."
+            advice="HRV trends should move up or down as new synced values are stored."
             lineColor="#53B7B3"
             pillBg="#E2F5F4"
           />
@@ -248,10 +363,11 @@ export default function WeeklyReportScreen() {
           <GraphCard
             title="Sleep Duration"
             unit="hrs"
-            avgText={`${avg(sleepValues).toFixed(1)}`}
+            avgText={`${avgSleep}`}
+            avgValue={Number(avgSleep)}
             labels={labels}
             values={sleepValues}
-            advice="Adequate sleep is important for recovery and emotional balance. Aim for a regular sleep routine."
+            advice="Sleep changes will appear as trend shifts day by day."
             lineColor="#7A8DF5"
             pillBg="#E9EDFF"
           />
@@ -259,10 +375,11 @@ export default function WeeklyReportScreen() {
           <GraphCard
             title="Step Count"
             unit="steps"
-            avgText={`${Math.round(avg(stepsValues))}`}
+            avgText={`${avgSteps}`}
+            avgValue={avgSteps}
             labels={labels}
             values={stepsValues}
-            advice="Light daily movement supports circulation and well-being. Gentle walking is enough."
+            advice="Step movement will be visible when the stored daily values change."
             lineColor="#6EBB76"
             pillBg="#E7F6E8"
           />
@@ -271,9 +388,10 @@ export default function WeeklyReportScreen() {
             title="Stress Level"
             unit="level"
             avgText={`${avg(stressValues).toFixed(1)}`}
+            avgValue={avg(stressValues)}
             labels={labels}
             values={stressValues}
-            advice="Watch for repeated stress spikes. Use your recommendations and supportive alerts to regulate gently."
+            advice="Stress trend changes only when valid stress predictions are saved by day."
             lineColor="#C47AE8"
             pillBg="#F2E8FB"
           />
@@ -296,17 +414,34 @@ const styles = StyleSheet.create({
   },
 
   hero: {
-    backgroundColor: "#44A6A3",
+    backgroundColor: "#178E88",
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 28,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+    overflow: "hidden",
+    position: "relative",
+  },
+
+  heroGradientBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  backText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontFamily: "PlusJakartaSans_700Bold",
+    marginBottom: 18,
+  },
+
+  backBtn: {
+    alignSelf: "flex-start",
   },
 
   heroTitle: {
     fontSize: 28,
-    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontFamily: "PlusJakartaSans_800ExtraBold",
     color: "#FFFFFF",
   },
 
@@ -314,7 +449,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 16,
     color: "#EAF7F6",
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontFamily: "PlusJakartaSans_500Medium",
   },
 
   emptyCard: {
@@ -322,6 +457,47 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 16,
+  },
+
+  avgGrid: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+
+  avgCard: {
+    width: "48%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  avgLabel: {
+    fontSize: 13,
+    color: "#64748B",
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+
+  avgValue: {
+    marginTop: 8,
+    fontSize: 24,
+    color: "#111827",
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+  },
+
+  avgUnit: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#94A3B8",
+    fontFamily: "PlusJakartaSans_600SemiBold",
   },
 
   metricCard: {
@@ -353,13 +529,13 @@ const styles = StyleSheet.create({
 
   metricIconText: {
     fontSize: 20,
-    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontFamily: "PlusJakartaSans_800ExtraBold",
     color: "#213547",
   },
 
   metricTitle: {
     fontSize: 16,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: "PlusJakartaSans_700Bold",
     color: "#2B3C4D",
   },
 
@@ -371,7 +547,7 @@ const styles = StyleSheet.create({
 
   metricAvg: {
     fontSize: 20,
-    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontFamily: "PlusJakartaSans_800ExtraBold",
     color: "#111827",
     marginRight: 6,
   },
@@ -379,7 +555,7 @@ const styles = StyleSheet.create({
   metricUnit: {
     fontSize: 13,
     color: "#6B7280",
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontFamily: "PlusJakartaSans_500Medium",
   },
 
   labelRow: {
@@ -392,7 +568,14 @@ const styles = StyleSheet.create({
   dayLabel: {
     fontSize: 12,
     color: "#7A8793",
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontFamily: "PlusJakartaSans_500Medium",
+  },
+
+  avgGuideText: {
+    marginTop: 8,
+    fontSize: 11,
+    color: "#64748B",
+    fontFamily: "PlusJakartaSans_500Medium",
   },
 
   tipBox: {
@@ -406,6 +589,6 @@ const styles = StyleSheet.create({
     color: "#5C4A4A",
     fontSize: 14,
     lineHeight: 23,
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontFamily: "PlusJakartaSans_500Medium",
   },
 });
