@@ -16,7 +16,6 @@ import { signOut } from "firebase/auth";
 
 import {
   getTodayFromWatchOrBackend,
-  resetWellnessSession,
   startWatchLive,
   stopWatchLive,
   subscribeWatchLive,
@@ -277,8 +276,6 @@ export default function WellnessHomeScreen() {
   async function onLogoutPress() {
     try {
       if (!firebaseReady || !auth) return;
-      stopWatchLive();
-      resetWellnessSession(userId);
       await signOut(auth);
     } catch (e) {
       console.log("logout error:", e);

@@ -244,9 +244,13 @@ def build_sms_alert_message(
 
 def get_guardian_sms_phones(user_profile: dict) -> list[str]:
     phones = []
-    phone = str(user_profile.get("secondaryPhone") or "").strip()
-    if phone:
-        phones.append(phone)
+    for value in [
+        user_profile.get("primaryPhone"),
+        user_profile.get("secondaryPhone"),
+    ]:
+        phone = str(value or "").strip()
+        if phone and phone not in phones:
+            phones.append(phone)
     return phones
 
 

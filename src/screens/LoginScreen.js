@@ -18,12 +18,10 @@ import {
   buildFirebasePasswordCandidates,
   normalizeEmail,
 } from '../services/authCredentials';
-import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen({ navigation, route }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
@@ -94,27 +92,14 @@ export default function LoginScreen({ navigation, route }) {
               onChangeText={setLoginId}
             />
 
-            <View style={styles.passwordField}>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                placeholder="Password or legacy PIN"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword((prev) => !prev)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color="#64748B"
-                />
-              </TouchableOpacity>
-            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Password or legacy PIN"
+              placeholderTextColor="#94A3B8"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
 
             <TouchableOpacity
               style={styles.forgotBtn}
@@ -192,17 +177,6 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginBottom: 14,
     backgroundColor: '#F8FAFC',
-  },
-  passwordField: {
-    position: 'relative',
-  },
-  passwordInput: {
-    paddingRight: 48,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: 14,
-    top: 14,
   },
   error: {
     color: '#DC2626',

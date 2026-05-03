@@ -53,7 +53,6 @@ let notifyChar: BluetoothRemoteGATTCharacteristic | null = null;
 
 let online = false;
 let lastLive: TodayData | null = null;
-let activeUserId = "";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -62,65 +61,24 @@ let buf = "";
 let lastPredictAt = 0;
 let lastAlertSyncAt = 0;
 let activitiesBadgeDismissed = false;
-
-function historyStorageKey(userId: string) {
-  return `momera_recommendation_history_v1_${userId}`;
-}
-
-function activitySeenAtKey(userId: string) {
-  return `momera_activity_seen_at_v1_${userId}`;
-}
-
-function resetInMemoryWellnessState(nextUserId = "") {
-  activeUserId = nextUserId;
-  lastLive = null;
-  online = false;
-  buf = "";
-  lastPredictAt = 0;
-  lastAlertSyncAt = 0;
-  activitiesBadgeDismissed = false;
-}
-
-function ensureUserScope(userId: string) {
-  const normalizedUserId = String(userId || "").trim();
-  if (!normalizedUserId) {
-    if (activeUserId) {
-      resetInMemoryWellnessState("");
-      emit();
-    }
-    return "";
-  }
-
-  if (activeUserId && activeUserId !== normalizedUserId) {
-    resetInMemoryWellnessState(normalizedUserId);
-    emit();
-  } else if (!activeUserId) {
-    activeUserId = normalizedUserId;
-  }
-
-  return normalizedUserId;
-}
+const HISTORY_STORAGE_KEY = "momera_recommendation_history_v1";
+const ACTIVITY_SEEN_AT_KEY = "momera_activity_seen_at_v1";
 
 function emit() {
   listeners.forEach((fn) => fn());
 }
 
-async function persistRecommendationHistory(userId: string, history: RecommendationItem[]) {
-  if (!userId) return;
+async function persistRecommendationHistory(history: RecommendationItem[]) {
   try {
-    await AsyncStorage.setItem(
-      historyStorageKey(userId),
-      JSON.stringify(history.slice(0, 20))
-    );
+    await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, 20)));
   } catch (e) {
     console.log("persistRecommendationHistory error:", e);
   }
 }
 
-async function loadPersistedRecommendationHistory(userId: string) {
-  if (!userId) return [];
+async function loadPersistedRecommendationHistory() {
   try {
-    const raw = await AsyncStorage.getItem(historyStorageKey(userId));
+    const raw = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return normalizeHistory(Array.isArray(parsed) ? parsed : []);
@@ -130,39 +88,25 @@ async function loadPersistedRecommendationHistory(userId: string) {
   }
 }
 
-async function persistActivitySeenAt(userId: string, value: string) {
-  if (!userId) return;
+async function persistActivitySeenAt(value: string) {
   try {
-    await AsyncStorage.setItem(activitySeenAtKey(userId), value);
+    await AsyncStorage.setItem(ACTIVITY_SEEN_AT_KEY, value);
   } catch (e) {
     console.log("persistActivitySeenAt error:", e);
   }
 }
 
-async function loadActivitySeenAt(userId: string) {
-  if (!userId) return null;
+async function loadActivitySeenAt() {
   try {
-    return await AsyncStorage.getItem(activitySeenAtKey(userId));
+    return await AsyncStorage.getItem(ACTIVITY_SEEN_AT_KEY);
   } catch (e) {
     console.log("loadActivitySeenAt error:", e);
     return null;
   }
 }
 
-export async function getStoredRecommendationHistory(userId: string) {
-  return loadPersistedRecommendationHistory(ensureUserScope(userId));
-}
-
-export function resetWellnessSession(userId = "") {
-  const normalizedUserId = String(userId || "").trim();
-  if (
-    !normalizedUserId ||
-    !activeUserId ||
-    activeUserId === normalizedUserId
-  ) {
-    resetInMemoryWellnessState(normalizedUserId);
-    emit();
-  }
+export async function getStoredRecommendationHistory() {
+  return loadPersistedRecommendationHistory();
 }
 
 function pad2(n: number) {
@@ -405,13 +349,11 @@ export function setLiveUnreadCount(
 
 export async function syncUnreadCount(userId: string, force = false) {
   try {
-    const scopedUserId = ensureUserScope(userId);
-    if (!scopedUserId) return;
     const now = Date.now();
     if (!force && now - lastAlertSyncAt < 20000) return;
     lastAlertSyncAt = now;
 
-    const res = await apiAlertsList({ userId: scopedUserId, limit: 1 });
+    const res = await apiAlertsList({ userId, limit: 1 });
     const latest = res?.alerts?.[0];
 
     setLiveUnreadCount(
@@ -426,9 +368,7 @@ export async function syncUnreadCount(userId: string, force = false) {
 
 export async function markAllAlertsReadAndSync(userId: string) {
   try {
-    const scopedUserId = ensureUserScope(userId);
-    if (!scopedUserId) return;
-    await apiAlertsMarkRead({ userId: scopedUserId });
+    await apiAlertsMarkRead({ userId });
 
     setLiveUnreadCount(
       0,
@@ -436,7 +376,7 @@ export async function markAllAlertsReadAndSync(userId: string) {
       lastLive?.latestAlertCreatedAt ?? ""
     );
 
-    await syncUnreadCount(scopedUserId, true);
+    await syncUnreadCount(userId, true);
   } catch (e) {
     console.log("markAllAlertsReadAndSync error:", e);
   }
@@ -455,9 +395,7 @@ export function clearLiveAlertsUnreadVisualOnly() {
 
 export function clearLiveActivitiesUnreadVisualOnly() {
   activitiesBadgeDismissed = true;
-  if (activeUserId) {
-    persistActivitySeenAt(activeUserId, getLocalDateTimeISO());
-  }
+  persistActivitySeenAt(getLocalDateTimeISO());
 
   if (!lastLive) return;
 
@@ -476,16 +414,12 @@ export function clearLiveActivitiesUnreadVisualOnly() {
   };
 
   emit();
-  if (activeUserId) {
-    persistRecommendationHistory(activeUserId, recommendationHistory);
-  }
+  persistRecommendationHistory(recommendationHistory);
 }
 
 export function markAllRecommendationsRead() {
   activitiesBadgeDismissed = true;
-  if (activeUserId) {
-    persistActivitySeenAt(activeUserId, getLocalDateTimeISO());
-  }
+  persistActivitySeenAt(getLocalDateTimeISO());
 
   const existingHistory = normalizeHistory(lastLive?.recommendationHistory ?? []);
   if (!existingHistory.length) return;
@@ -503,9 +437,7 @@ export function markAllRecommendationsRead() {
   };
 
   emit();
-  if (activeUserId) {
-    persistRecommendationHistory(activeUserId, nextHistory);
-  }
+  persistRecommendationHistory(nextHistory);
 }
 
 /**
@@ -517,15 +449,13 @@ export function markAllRecommendationsRead() {
  * - unread count
  */
 async function runPredict(userId: string, data: TodayData) {
-  const scopedUserId = ensureUserScope(userId);
-  if (!scopedUserId) return;
   const now = Date.now();
   if (now - lastPredictAt < 1500) return;
   lastPredictAt = now;
 
   try {
     console.log("[watch] runPredict payload", {
-      userId: scopedUserId,
+      userId,
       hr: Number(data.hr ?? 0),
       hrv: Number(data.hrv ?? 0),
       sleepHours: Number(data.sleepHours ?? 0),
@@ -534,7 +464,7 @@ async function runPredict(userId: string, data: TodayData) {
     });
 
     const res = await apiPredict({
-      userId: scopedUserId,
+      userId,
       dateTimeISO: getLocalDateTimeISO(),
       HR_sensor: Number(data.hr ?? 0),
       Heart_Rate_Variability: Number(data.hrv ?? 0),
@@ -598,8 +528,8 @@ async function runPredict(userId: string, data: TodayData) {
     };
 
     emit();
-    await persistRecommendationHistory(scopedUserId, mergedHistory);
-    await syncUnreadCount(scopedUserId, true);
+    await persistRecommendationHistory(mergedHistory);
+    await syncUnreadCount(userId, true);
   } catch (e) {
     console.log("runPredict error:", e);
 
@@ -623,46 +553,25 @@ async function runPredict(userId: string, data: TodayData) {
       timestamp: getLocalDateISO(),
     };
     emit();
-    await persistRecommendationHistory(scopedUserId, recommendationHistory);
+    await persistRecommendationHistory(recommendationHistory);
   }
 }
 
 export async function getTodayFromWatchOrBackend(userId: string): Promise<TodayData> {
-  const scopedUserId = ensureUserScope(userId);
-  if (!scopedUserId) {
-    return {
-      hr: 0,
-      hrv: 0,
-      sleepHours: 0,
-      steps: 0,
-      stressPercent: 0,
-      stressLevel: "Low",
-      modelReady: false,
-      timestamp: getLocalDateISO(),
-      alertsCount: 0,
-      activitiesCount: 0,
-      recommendation: undefined,
-      recommendationHistory: [],
-      supportMessage: "",
-      stressChangeMessage: "",
-      latestAlertCreatedAt: "",
-    };
-  }
-
   if (online && lastLive) {
     return lastLive;
   }
 
   const [persistedRecommendationHistory, activitySeenAt] = await Promise.all([
-    loadPersistedRecommendationHistory(scopedUserId),
-    loadActivitySeenAt(scopedUserId),
+    loadPersistedRecommendationHistory(),
+    loadActivitySeenAt(),
   ]);
 
   try {
     const [weekly, alerts, activitiesRes] = await Promise.all([
-      apiWeeklyReport({ userId: scopedUserId, days: 1 }),
-      apiAlertsList({ userId: scopedUserId, limit: 1 }),
-      apiActivitiesList({ userId: scopedUserId, limit: 50 }).catch(() => null),
+      apiWeeklyReport({ userId, days: 1 }),
+      apiAlertsList({ userId, limit: 1 }),
+      apiActivitiesList({ userId, limit: 50 }).catch(() => null),
     ]);
 
     const p = weekly.points?.[0];
@@ -782,8 +691,6 @@ export async function getTodayFromWatchOrBackend(userId: string): Promise<TodayD
 }
 
 export async function startWatchLive(userId: string) {
-  const scopedUserId = ensureUserScope(userId);
-  if (!scopedUserId) throw new Error("User session not found.");
   if (!isWeb()) throw new Error("BLE works only on WEB (Chrome/Edge).");
   if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported in this browser.");
 
@@ -811,7 +718,7 @@ export async function startWatchLive(userId: string) {
   notifyChar.addEventListener("characteristicvaluechanged", (ev: any) => {
     const v: DataView = ev.target.value;
     const text = new TextDecoder().decode(v.buffer);
-    onIncomingText(text, scopedUserId);
+    onIncomingText(text, userId);
   });
 
   online = true;
