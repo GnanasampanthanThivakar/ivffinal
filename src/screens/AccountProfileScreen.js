@@ -354,6 +354,7 @@ export default function AccountProfileScreen() {
       const normalizedDob = String(form.dob || '').trim();
       const normalizedAge = calculateAgeFromDob(normalizedDob);
       const normalizedPrimaryPhone = normalizeSriLankanPhone(form.primaryPhone);
+      const normalizedSecondaryPhone = normalizeSriLankanPhone(form.secondaryPhone);
       const normalizedEmail = normalizeEmail(form.email);
       const normalizedUsername = generateUsername(
         normalizedEmail,
@@ -373,6 +374,9 @@ export default function AccountProfileScreen() {
       }
       if (!isValidSriLankanPhone(normalizedPrimaryPhone)) {
         throw new Error('User mobile phone must be a valid Sri Lankan mobile number');
+      }
+      if (normalizedSecondaryPhone && normalizedPrimaryPhone === normalizedSecondaryPhone) {
+        throw new Error('User mobile and guardian mobile must be different numbers');
       }
       if (String(form.address || '').trim().length < 10) {
         throw new Error('Address must be at least 10 characters');
@@ -400,7 +404,7 @@ export default function AccountProfileScreen() {
         dob: normalizedDob,
         age: normalizedAge,
         primaryPhone: normalizedPrimaryPhone,
-        secondaryPhone: normalizeSriLankanPhone(profile?.secondaryPhone || ''),
+        secondaryPhone: normalizedSecondaryPhone,
         alertWhatsappPhone: String(form.alertWhatsappPhone || '').trim(),
         address: String(form.address || '').trim(),
         email: String(auth.currentUser.email || '').trim().toLowerCase(),
@@ -704,10 +708,12 @@ export default function AccountProfileScreen() {
               <ProfileField
                 label="Guardian Mobile No "
                 value={form.secondaryPhone}
+                onChangeText={(value) =>
+                  setField('secondaryPhone', normalizeSriLankanPhone(value))
+                }
                 isEditing={isEditing}
                 placeholder="+94..."
                 keyboardType="phone-pad"
-                editable={false}
               />
 
               <ProfileField

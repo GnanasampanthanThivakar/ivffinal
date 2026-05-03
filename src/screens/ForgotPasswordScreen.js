@@ -11,12 +11,15 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { apiForgotPin } from '../services/backendApi';
 import { isStrongPassword } from '../services/authCredentials';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [loginId, setLoginId] = useState('');
   const [primaryPhone, setPrimaryPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -82,23 +85,49 @@ export default function ForgotPasswordScreen({ navigation }) {
             onChangeText={setPrimaryPhone}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="New Password"
-            placeholderTextColor="#94A3B8"
-            secureTextEntry
-            value={newPassword}
-            onChangeText={setNewPassword}
-          />
+          <View style={styles.passwordField}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="New Password"
+              placeholderTextColor="#94A3B8"
+              secureTextEntry={!showNewPassword}
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowNewPassword((prev) => !prev)}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={showNewPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color="#64748B"
+              />
+            </TouchableOpacity>
+          </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Confirm New Password"
-            placeholderTextColor="#94A3B8"
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
+          <View style={styles.passwordField}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Confirm New Password"
+              placeholderTextColor="#94A3B8"
+              secureTextEntry={!showConfirmPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowConfirmPassword((prev) => !prev)}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color="#64748B"
+              />
+            </TouchableOpacity>
+          </View>
 
           {!!errorMsg && <Text style={styles.error}>{errorMsg}</Text>}
           {!!successMsg && <Text style={styles.success}>{successMsg}</Text>}
@@ -156,6 +185,17 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginBottom: 14,
     backgroundColor: '#F8FAFC',
+  },
+  passwordField: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
   },
   error: {
     color: '#DC2626',

@@ -152,7 +152,7 @@ export default function ActivityScreen() {
 
       const [today, storedHistory, activitiesRes] = await Promise.all([
         getTodayFromWatchOrBackend(userId),
-        getStoredRecommendationHistory(),
+        getStoredRecommendationHistory(userId),
         apiActivitiesList({ userId, limit: 50 }).catch(() => null),
       ]);
 
