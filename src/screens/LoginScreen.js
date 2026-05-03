@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, firebaseReady } from '../services/firebase';
 import { normalizeAuthError } from '../services/authErrorMessages';
@@ -22,6 +23,7 @@ import {
 export default function LoginScreen({ navigation, route }) {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
@@ -92,14 +94,27 @@ export default function LoginScreen({ navigation, route }) {
               onChangeText={setLoginId}
             />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Password or legacy PIN"
-              placeholderTextColor="#94A3B8"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Password or legacy PIN"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword((prev) => !prev)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#64748B"
+                />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.forgotBtn}
@@ -177,6 +192,21 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginBottom: 14,
     backgroundColor: '#F8FAFC',
+  },
+  passwordWrap: {
+    position: 'relative',
+    marginBottom: 14,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 48,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   error: {
     color: '#DC2626',

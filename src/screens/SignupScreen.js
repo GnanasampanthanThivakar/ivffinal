@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import {
   createUserWithEmailAndPassword,
   updateProfile,
@@ -49,6 +50,7 @@ export default function SignupScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showDobPicker, setShowDobPicker] = useState(false);
   const [usernameTouched, setUsernameTouched] = useState(false);
@@ -358,14 +360,27 @@ export default function SignupScreen({ navigation }) {
             {!!emailError && <Text style={styles.inlineError}>{emailError}</Text>}
 
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Create a secure password"
-              placeholderTextColor="#94A3B8"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Create a secure password"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword((prev) => !prev)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#64748B"
+                />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.helperText}>
               Use at least 8 characters with uppercase, lowercase, number, and symbol.
             </Text>
@@ -453,6 +468,19 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginBottom: 14,
     backgroundColor: '#F8FAFC',
+  },
+  passwordWrap: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 48,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    bottom: 14,
+    justifyContent: 'center',
   },
   webDateShell: {
     borderWidth: 1,

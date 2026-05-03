@@ -53,6 +53,7 @@ let notifyChar: BluetoothRemoteGATTCharacteristic | null = null;
 
 let online = false;
 let lastLive: TodayData | null = null;
+let currentLiveUserId = "";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -61,24 +62,44 @@ let buf = "";
 let lastPredictAt = 0;
 let lastAlertSyncAt = 0;
 let activitiesBadgeDismissed = false;
-const HISTORY_STORAGE_KEY = "momera_recommendation_history_v1";
-const ACTIVITY_SEEN_AT_KEY = "momera_activity_seen_at_v1";
+
+function historyStorageKey(userId: string) {
+  return `momera_recommendation_history_v1_${userId}`;
+}
+
+function activitySeenAtKey(userId: string) {
+  return `momera_activity_seen_at_v1_${userId}`;
+}
+
+function resetLiveState() {
+  lastLive = null;
+  currentLiveUserId = "";
+  buf = "";
+  lastPredictAt = 0;
+  lastAlertSyncAt = 0;
+  activitiesBadgeDismissed = false;
+}
 
 function emit() {
   listeners.forEach((fn) => fn());
 }
 
-async function persistRecommendationHistory(history: RecommendationItem[]) {
+async function persistRecommendationHistory(userId: string, history: RecommendationItem[]) {
+  if (!userId) return;
   try {
-    await AsyncStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history.slice(0, 20)));
+    await AsyncStorage.setItem(
+      historyStorageKey(userId),
+      JSON.stringify(history.slice(0, 20))
+    );
   } catch (e) {
     console.log("persistRecommendationHistory error:", e);
   }
 }
 
-async function loadPersistedRecommendationHistory() {
+async function loadPersistedRecommendationHistory(userId: string) {
+  if (!userId) return [];
   try {
-    const raw = await AsyncStorage.getItem(HISTORY_STORAGE_KEY);
+    const raw = await AsyncStorage.getItem(historyStorageKey(userId));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return normalizeHistory(Array.isArray(parsed) ? parsed : []);
@@ -88,25 +109,62 @@ async function loadPersistedRecommendationHistory() {
   }
 }
 
-async function persistActivitySeenAt(value: string) {
+async function persistActivitySeenAt(userId: string, value: string) {
+  if (!userId) return;
   try {
-    await AsyncStorage.setItem(ACTIVITY_SEEN_AT_KEY, value);
+    await AsyncStorage.setItem(activitySeenAtKey(userId), value);
   } catch (e) {
     console.log("persistActivitySeenAt error:", e);
   }
 }
 
-async function loadActivitySeenAt() {
+async function loadActivitySeenAt(userId: string) {
+  if (!userId) return null;
   try {
-    return await AsyncStorage.getItem(ACTIVITY_SEEN_AT_KEY);
+    return await AsyncStorage.getItem(activitySeenAtKey(userId));
   } catch (e) {
     console.log("loadActivitySeenAt error:", e);
     return null;
   }
 }
 
-export async function getStoredRecommendationHistory() {
-  return loadPersistedRecommendationHistory();
+export async function getStoredRecommendationHistory(userId: string) {
+  return loadPersistedRecommendationHistory(userId);
+}
+
+export async function resetWatchUserSession(options?: {
+  disconnect?: boolean;
+  clearPersistedForUserId?: string;
+}) {
+  const userId = options?.clearPersistedForUserId || currentLiveUserId;
+
+  if (options?.disconnect) {
+    try {
+      notifyChar?.stopNotifications?.();
+    } catch {}
+    try {
+      server?.disconnect?.();
+    } catch {}
+
+    notifyChar = null;
+    server = null;
+    device = null;
+    online = false;
+  }
+
+  if (userId) {
+    try {
+      await AsyncStorage.multiRemove([
+        historyStorageKey(userId),
+        activitySeenAtKey(userId),
+      ]);
+    } catch (e) {
+      console.log("resetWatchUserSession storage cleanup error:", e);
+    }
+  }
+
+  resetLiveState();
+  emit();
 }
 
 function pad2(n: number) {
@@ -348,6 +406,9 @@ export function setLiveUnreadCount(
 }
 
 export async function syncUnreadCount(userId: string, force = false) {
+  if (!userId) return;
+  currentLiveUserId = userId;
+
   try {
     const now = Date.now();
     if (!force && now - lastAlertSyncAt < 20000) return;
@@ -394,8 +455,9 @@ export function clearLiveAlertsUnreadVisualOnly() {
 }
 
 export function clearLiveActivitiesUnreadVisualOnly() {
+  if (!currentLiveUserId) return;
   activitiesBadgeDismissed = true;
-  persistActivitySeenAt(getLocalDateTimeISO());
+  persistActivitySeenAt(currentLiveUserId, getLocalDateTimeISO());
 
   if (!lastLive) return;
 
@@ -414,12 +476,13 @@ export function clearLiveActivitiesUnreadVisualOnly() {
   };
 
   emit();
-  persistRecommendationHistory(recommendationHistory);
+  persistRecommendationHistory(currentLiveUserId, recommendationHistory);
 }
 
 export function markAllRecommendationsRead() {
+  if (!currentLiveUserId) return;
   activitiesBadgeDismissed = true;
-  persistActivitySeenAt(getLocalDateTimeISO());
+  persistActivitySeenAt(currentLiveUserId, getLocalDateTimeISO());
 
   const existingHistory = normalizeHistory(lastLive?.recommendationHistory ?? []);
   if (!existingHistory.length) return;
@@ -437,7 +500,7 @@ export function markAllRecommendationsRead() {
   };
 
   emit();
-  persistRecommendationHistory(nextHistory);
+  persistRecommendationHistory(currentLiveUserId, nextHistory);
 }
 
 /**
@@ -449,6 +512,9 @@ export function markAllRecommendationsRead() {
  * - unread count
  */
 async function runPredict(userId: string, data: TodayData) {
+  if (!userId) return;
+  currentLiveUserId = userId;
+
   const now = Date.now();
   if (now - lastPredictAt < 1500) return;
   lastPredictAt = now;
@@ -528,7 +594,7 @@ async function runPredict(userId: string, data: TodayData) {
     };
 
     emit();
-    await persistRecommendationHistory(mergedHistory);
+    await persistRecommendationHistory(userId, mergedHistory);
     await syncUnreadCount(userId, true);
   } catch (e) {
     console.log("runPredict error:", e);
@@ -553,18 +619,45 @@ async function runPredict(userId: string, data: TodayData) {
       timestamp: getLocalDateISO(),
     };
     emit();
-    await persistRecommendationHistory(recommendationHistory);
+    await persistRecommendationHistory(userId, recommendationHistory);
   }
 }
 
 export async function getTodayFromWatchOrBackend(userId: string): Promise<TodayData> {
-  if (online && lastLive) {
+  if (!userId) {
+    resetLiveState();
+    return {
+      hr: 0,
+      hrv: 0,
+      sleepHours: 0,
+      steps: 0,
+      stressPercent: 0,
+      stressLevel: "Low",
+      modelReady: false,
+      timestamp: getLocalDateISO(),
+      alertsCount: 0,
+      activitiesCount: 0,
+      recommendation: undefined,
+      recommendationHistory: [],
+      supportMessage: "",
+      stressChangeMessage: "",
+      latestAlertCreatedAt: "",
+    };
+  }
+
+  if (currentLiveUserId && currentLiveUserId !== userId) {
+    resetLiveState();
+  }
+
+  currentLiveUserId = userId;
+
+  if (online && lastLive && currentLiveUserId === userId) {
     return lastLive;
   }
 
   const [persistedRecommendationHistory, activitySeenAt] = await Promise.all([
-    loadPersistedRecommendationHistory(),
-    loadActivitySeenAt(),
+    loadPersistedRecommendationHistory(userId),
+    loadActivitySeenAt(userId),
   ]);
 
   try {
@@ -631,6 +724,7 @@ export async function getTodayFromWatchOrBackend(userId: string): Promise<TodayD
         ...(lastLive || {}),
         ...baseData,
       };
+      currentLiveUserId = userId;
 
       return lastLive;
     }
@@ -694,7 +788,12 @@ export async function startWatchLive(userId: string) {
   if (!isWeb()) throw new Error("BLE works only on WEB (Chrome/Edge).");
   if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported in this browser.");
 
+  if (currentLiveUserId && currentLiveUserId !== userId) {
+    await resetWatchUserSession({ disconnect: true });
+  }
+
   if (device?.gatt?.connected) {
+    currentLiveUserId = userId;
     online = true;
     emit();
     return;
@@ -721,6 +820,7 @@ export async function startWatchLive(userId: string) {
     onIncomingText(text, userId);
   });
 
+  currentLiveUserId = userId;
   online = true;
   emit();
 }
@@ -738,7 +838,7 @@ export function stopWatchLive() {
   device = null;
 
   online = false;
-  activitiesBadgeDismissed = false;
+  resetLiveState();
   emit();
 }
 
