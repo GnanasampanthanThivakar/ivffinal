@@ -21,7 +21,7 @@ export default function WelcomeScreen({ navigation }) {
       <StatusBar barStyle="light-content" />
       
       <LinearGradient
-        colors={['#0D9488', '#14B8A6', '#0F766E']}
+        colors={['#0D9488', '#059669', '#0F766E']}
         style={styles.backgroundGradient}
       >
         <SafeAreaView style={styles.safeArea}>
@@ -63,18 +63,26 @@ export default function WelcomeScreen({ navigation }) {
                 
                 <TouchableOpacity 
                     style={styles.glassButton}
-                    onPress={() => navigation.navigate('ProfileSetupStep1')}
+                    onPress={() => navigation.navigate('Login')}
                     activeOpacity={0.8}
                 >
                     <LinearGradient
                         colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0.1)']}
                         style={styles.buttonInner}
                     >
-                        <Text style={styles.buttonText}>Let's Started</Text>
+                        <Text style={styles.buttonText}>Login</Text>
                     </LinearGradient>
                 </TouchableOpacity>
 
-
+                <TouchableOpacity
+                    style={styles.registerLink}
+                    onPress={() => navigation.navigate('Signup')}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.registerText}>
+                        New here? <Text style={styles.registerBold}>Create an account</Text>
+                    </Text>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
       </LinearGradient>
@@ -85,7 +93,7 @@ export default function WelcomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D9488',
+    backgroundColor: '#059669',
     overflow: 'hidden', // Prevent overscroll
   },
   backgroundGradient: {

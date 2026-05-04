@@ -6,3 +6,7 @@ numpy
 pydantic
 xgboost
 python-dotenv
+joblib
+httpx
+firebase-admin
+google-api-core

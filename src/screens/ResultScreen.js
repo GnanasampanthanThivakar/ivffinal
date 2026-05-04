@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, TouchableOpacity, StatusBar, Platform, Animated, ActivityIndicator, Alert, Image } from 'react-native';
-import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop, Shadow } from 'react-native-svg';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    SafeAreaView,
+    Dimensions,
+    TouchableOpacity,
+    StatusBar,
+    Platform,
+    ActivityIndicator,
+    Alert,
+} from 'react-native';
+import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 
-const { width, height } = Dimensions.get('window');
-const API_URL = 'http://127.0.0.1:8000';
+const { height } = Dimensions.get('window');
+const API_URL = 'http://localhost:8000';
 
-// Circular Progress Component
 const SuccessRing = ({ percentage = 68 }) => {
     const radius = 90;
     const strokeWidth = 18;
@@ -56,7 +67,6 @@ const SuccessRing = ({ percentage = 68 }) => {
     );
 };
 
-// Horizontal Bar Chart Component
 const FactorBar = ({ label, value, color }) => (
     <View style={styles.factorRow}>
         <View style={styles.factorLabelWrapper}>
@@ -65,7 +75,7 @@ const FactorBar = ({ label, value, color }) => (
         </View>
         <View style={styles.factorBarBg}>
             <LinearGradient
-                colors={[color, color + 'CC']}
+                colors={[color, `${color}CC`]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.factorBarFill, { width: value }]}
@@ -74,15 +84,16 @@ const FactorBar = ({ label, value, color }) => (
     </View>
 );
 
-// Journey Step Component
 const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
     <View style={styles.journeyStep}>
         <View style={styles.journeyLeft}>
-            <View style={[
-                styles.journeyNode, 
-                isCompleted && styles.nodeCompleted,
-                isCurrent && styles.nodeCurrent
-            ]}>
+            <View
+                style={[
+                    styles.journeyNode,
+                    isCompleted && styles.nodeCompleted,
+                    isCurrent && styles.nodeCurrent,
+                ]}
+            >
                 {isCompleted ? (
                     <Text style={styles.nodeIcon}>✓</Text>
                 ) : isCurrent ? (
@@ -94,10 +105,14 @@ const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
             {!isLast && <View style={[styles.journeyLine, isCompleted && styles.lineCompleted]} />}
         </View>
         <View style={styles.journeyContent}>
-            <Text style={[
-                styles.journeyLabel, 
-                (isCompleted || isCurrent) ? styles.labelActive : styles.labelPending
-            ]}>{label}</Text>
+            <Text
+                style={[
+                    styles.journeyLabel,
+                    (isCompleted || isCurrent) ? styles.labelActive : styles.labelPending,
+                ]}
+            >
+                {label}
+            </Text>
             {isCurrent && <Text style={styles.currentTag}>In Progress</Text>}
         </View>
     </View>
@@ -105,32 +120,24 @@ const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
 
 export default function ResultScreen({ navigation, route }) {
     const params = route.params || {};
-    console.log('ResultScreen received params:', params);
+    const analysisReady = params.predictionSuccess !== undefined && params.predictionSuccess !== null;
 
-    const getVal = (val, defaultValue) => {
-        if (val === undefined || val === null || val === '') return defaultValue;
-        const parsed = parseFloat(val);
-        return isNaN(parsed) ? defaultValue : parsed;
-    };
-
-    const currentAge = getVal(params.age, 34);
-    const ageFactor = Math.max(10, Math.min(95, ((50 - currentAge) / 32) * 100));
-
-    const currentAmh = getVal(params.amh_level || params.amhLevel, 2.0);
-    const amhFactor = Math.max(10, Math.min(95, (currentAmh / 5) * 100));
-
-    const currentBmi = getVal(params.bmi, 22.0);
-    const bmiFactor = Math.max(10, Math.min(95, (1 - Math.abs(22 - currentBmi) / 20) * 100));
-
-    const currentFrag = getVal(params.d3_fragmentation || params.freshD3Fragmentation, 10);
-    const fragFactor = Math.max(10, Math.min(95, ((30 - currentFrag) / 30) * 100));
-
-    const successRate = params.predictionSuccess !== undefined ? parseFloat(params.predictionSuccess) : 48.0;
+    const ageFactor = Math.max(10, Math.min(95, ((50 - (parseFloat(params.age) || 34)) / 32) * 100));
+    const amhFactor = Math.max(10, Math.min(95, ((parseFloat(params.amh_level || params.amhLevel) || 2) / 5) * 100));
+    const bmiVal = parseFloat(params.bmi) || 22.0;
+    const bmiFactor = Math.max(10, Math.min(95, (1 - Math.abs(22 - bmiVal) / 20) * 100));
+    const fragVal = parseFloat(params.d3_fragmentation || params.freshD3Fragmentation) || 10;
+    const fragFactor = Math.max(10, Math.min(95, ((30 - fragVal) / 30) * 100));
+    const successRate = analysisReady ? Math.round(params.predictionSuccess) : 0;
 
     const [doctorAdvice, setDoctorAdvice] = useState(null);
     const [loadingAdvice, setLoadingAdvice] = useState(false);
 
     const fetchDoctorRecommendation = async () => {
+        if (!analysisReady) {
+            return;
+        }
+
         setLoadingAdvice(true);
         setDoctorAdvice(null);
         try {
@@ -143,8 +150,8 @@ export default function ResultScreen({ navigation, route }) {
                     amh_level: parseFloat(params.amh_level || params.amhLevel) || 2.0,
                     bmi: parseFloat(params.bmi) || 22.0,
                     prior_sab: parseInt(params.prior_sab || params.priorSAB) || 0,
-                    cell_quality: parseFloat(params.d3_fragmentation || params.freshD3Fragmentation) || 10.0
-                })
+                    cell_quality: parseFloat(params.d3_fragmentation || params.freshD3Fragmentation) || 10.0,
+                }),
             });
             const result = await response.json();
             setDoctorAdvice(result.recommendation);
@@ -155,23 +162,15 @@ export default function ResultScreen({ navigation, route }) {
             setLoadingAdvice(false);
         }
     };
-    
-    // Helper function to render AI advice with structure
+
     const renderAdviceContent = (text) => {
         if (!text) return null;
-        
-        // Split by double newlines or single newlines that look like list starts
         const sections = text.split(/\n\n|\n(?=[•\-\*\d\.])/);
-        
         return sections.map((section, idx) => {
             const trimmed = section.trim();
             if (!trimmed) return null;
-            
-            // Check if it's a list (starts with •, -, *, or 1.)
             const isBullet = /^[•\-\*\d]/.test(trimmed);
-            
             if (isBullet) {
-                // Split internal lines if it's a block of bullets
                 const items = trimmed.split('\n');
                 return (
                     <View key={`section-${idx}`} style={styles.adviceList}>
@@ -188,8 +187,6 @@ export default function ResultScreen({ navigation, route }) {
                     </View>
                 );
             }
-            
-            // Render regular paragraph
             return (
                 <Text key={`section-${idx}`} style={styles.adviceParagraph}>
                     {trimmed}
@@ -201,14 +198,12 @@ export default function ResultScreen({ navigation, route }) {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
-            
-            {/* Immersive Background */}
+
             <LinearGradient
                 colors={['#0F766E', '#0D9488', '#0F766E']}
                 style={styles.headerBackground}
             />
 
-            {/* Decorative Glassmorphism Circles */}
             <View style={[styles.bgCircle, { top: -40, right: -40, width: 220, height: 220, opacity: 0.1 }]} />
             <View style={[styles.bgCircle, { top: 100, left: -60, width: 180, height: 180, opacity: 0.05 }]} />
 
@@ -221,143 +216,154 @@ export default function ResultScreen({ navigation, route }) {
                     <View style={{ width: 44 }} />
                 </View>
 
-                <ScrollView 
+                <ScrollView
                     style={styles.scrollContainer}
-                    contentContainerStyle={styles.scrollContent} 
+                    contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.introSection}>
-                        <Text style={styles.headerTitle}>Your Personalized Results</Text>
-                        <Text style={styles.headerSubtitle}>Based on your unique profile, {params.name || 'User'}</Text>
+                        <Text style={styles.headerTitle}>
+                            {analysisReady ? 'Your Personalized Results' : 'Assessment Pending'}
+                        </Text>
+                        <Text style={styles.headerSubtitle}>
+                            {analysisReady
+                                ? `Based on your unique profile, ${params.name || 'User'}`
+                                : 'This report should appear only after Generate Analysis completes.'}
+                        </Text>
                     </View>
 
-                    {/* Main Results Interaction */}
-                    <View style={[styles.card, styles.resultCard]}>
-                        <View style={styles.cardHeader}>
-                             <View style={styles.tag}>
-                                 <Text style={styles.tagText}>Clinical AI Analysis</Text>
-                             </View>
-                             <Text style={styles.sectionHeader}>IVF Success Probability</Text>
-                        </View>
+                    {analysisReady ? (
+                        <>
+                            <View style={[styles.card, styles.resultCard]}>
+                                <View style={styles.cardHeader}>
+                                    <View style={styles.tag}>
+                                        <Text style={styles.tagText}>Clinical AI Analysis</Text>
+                                    </View>
+                                    <Text style={styles.sectionHeader}>IVF Success Probability</Text>
+                                </View>
 
-                        <SuccessRing percentage={successRate} />
-                        
-                        <View style={styles.divider} />
-                        
-                        <View style={styles.cardHeader}>
-                            <Text style={styles.sectionHeaderSub}>Key Influencing Factors</Text>
-                            <Text style={styles.impactLabel}>Overall Impact</Text>
-                        </View>
-                        <View style={styles.factorsContainer}>
-                            <FactorBar label="Age" value={`${ageFactor.toFixed(0)}%`} color="#0D9488" />
-                            <FactorBar label="AMH Level" value={`${amhFactor.toFixed(0)}%`} color="#F97316" />
-                            <FactorBar label="BMI Index" value={`${bmiFactor.toFixed(0)}%`} color="#8B5CF6" />
-                            <FactorBar label="Cell Quality" value={`${fragFactor.toFixed(0)}%`} color="#10B981" />
-                        </View>
-                    </View>
+                                <SuccessRing percentage={successRate} />
 
+                                <View style={styles.divider} />
 
-                {/* Journey Section */}
-                <View style={[styles.card, styles.journeyCard]}>
-                    <Text style={styles.sectionHeaderSub}>Your IVF Journey</Text>
-                    <View style={styles.journeyContainer}>
-                        <JourneyStep label="Initial Consultation" isCompleted />
-                        <JourneyStep label="Stimulation Phase" isCompleted />
-                        <JourneyStep label="Post-Lab Analysis" isCurrent />
-                        <JourneyStep label="Pre-Transfer" isLast />
-                    </View>
-                </View>
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.sectionHeaderSub}>Key Influencing Factors</Text>
+                                    <Text style={styles.impactLabel}>Overall Impact</Text>
+                                </View>
+                                <View style={styles.factorsContainer}>
+                                    <FactorBar label="Age" value={`${ageFactor.toFixed(0)}%`} color="#0D9488" />
+                                    <FactorBar label="AMH Level" value={`${amhFactor.toFixed(0)}%`} color="#F97316" />
+                                    <FactorBar label="BMI Index" value={`${bmiFactor.toFixed(0)}%`} color="#8B5CF6" />
+                                    <FactorBar label="Cell Quality" value={`${fragFactor.toFixed(0)}%`} color="#10B981" />
+                                </View>
+                            </View>
 
-                {/* Patient Profile Section */}
-                <View style={styles.card}>
-                    <Text style={[styles.sectionHeaderSub, { marginBottom: 16 }]}>Clinical Profile Summary</Text>
-                    <View style={styles.profileGrid}>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>Age</Text>
-                            <Text style={styles.profileValue}>{currentAge} yrs</Text>
-                        </View>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>AMH</Text>
-                            <Text style={styles.profileValue}>{currentAmh.toFixed(1)} ng/mL</Text>
-                        </View>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>BMI</Text>
-                            <Text style={styles.profileValue}>{currentBmi.toFixed(1)}</Text>
-                        </View>
-                        <View style={styles.profileItem}>
-                            <Text style={styles.profileLabel}>Prior SAB</Text>
-                            <Text style={styles.profileValue}>{getVal(params.prior_sab || params.priorSAB, 0)}</Text>
-                        </View>
-                    </View>
-                </View>
+                            <View style={[styles.card, styles.journeyCard]}>
+                                <Text style={styles.sectionHeaderSub}>Your IVF Journey</Text>
+                                <View style={styles.journeyContainer}>
+                                    <JourneyStep label="Initial Consultation" isCompleted />
+                                    <JourneyStep label="Stimulation Phase" isCompleted />
+                                    <JourneyStep label="Post-Lab Analysis" isCurrent />
+                                    <JourneyStep label="Pre-Transfer" isLast />
+                                </View>
+                            </View>
 
-                {/* New Premium Doctor Consultation Card */}
-                <View style={styles.ctaCardWrapper}>
-                    <LinearGradient
-                        colors={['#0F766E', '#0D9488']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.ctaCard}
-                    >
-                        <View style={styles.ctaLeft}>
-                            <Text style={styles.ctaTitle}>Get Clinical{"\n"}Recommendation</Text>
-                            <Text style={styles.ctaSubtitle}>Personalized AI medical insights</Text>
-                            
+                            <View style={styles.card}>
+                                <Text style={[styles.sectionHeaderSub, { marginBottom: 16 }]}>
+                                    Clinical Profile Summary
+                                </Text>
+                                <View style={styles.profileGrid}>
+                                    <View style={styles.profileItem}>
+                                        <Text style={styles.profileLabel}>Age</Text>
+                                        <Text style={styles.profileValue}>{params.age || '34'} yrs</Text>
+                                    </View>
+                                    <View style={styles.profileItem}>
+                                        <Text style={styles.profileLabel}>AMH</Text>
+                                        <Text style={styles.profileValue}>
+                                            {params.amh_level || params.amhLevel || '2.0'} ng/mL
+                                        </Text>
+                                    </View>
+                                    <View style={styles.profileItem}>
+                                        <Text style={styles.profileLabel}>BMI</Text>
+                                        <Text style={styles.profileValue}>{params.bmi || '22.0'}</Text>
+                                    </View>
+                                    <View style={styles.profileItem}>
+                                        <Text style={styles.profileLabel}>Prior SAB</Text>
+                                        <Text style={styles.profileValue}>
+                                            {params.prior_sab || params.priorSAB || '0'}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+
                             <TouchableOpacity
-                                style={styles.ctaButton}
+                                style={styles.doctorButton}
                                 onPress={fetchDoctorRecommendation}
                                 disabled={loadingAdvice}
                             >
-                                <View style={styles.ctaButtonInner}>
+                                <LinearGradient
+                                    colors={['#7C3AED', '#5B21B6']}
+                                    style={styles.doctorButtonGradient}
+                                >
                                     {loadingAdvice ? (
-                                        <ActivityIndicator color="#0D9488" size="small" />
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <ActivityIndicator color="#FFFFFF" size="small" />
+                                            <Text style={styles.doctorButtonText}>  MedLLaMA2 is thinking...</Text>
+                                        </View>
                                     ) : (
-                                        <>
-                                            <Text style={styles.ctaButtonIcon}>🩺</Text>
-                                            <Text style={styles.ctaButtonText}>Get Now</Text>
-                                        </>
+                                        <Text style={styles.doctorButtonText}>Get Doctor Recommendation</Text>
                                     )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            {doctorAdvice && (
+                                <View style={styles.doctorCard}>
+                                    <View style={styles.doctorCardHeader}>
+                                        <Text style={styles.doctorAvatar}>AI</Text>
+                                        <View>
+                                            <Text style={styles.doctorName}>MedLLaMA2 AI Doctor</Text>
+                                            <Text style={styles.doctorSubtitle}>Personalized Medical Advice</Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.doctorDivider} />
+                                    <View style={styles.adviceContentContainer}>
+                                        {renderAdviceContent(doctorAdvice)}
+                                    </View>
+                                    <View style={styles.disclaimerBox}>
+                                        <Text style={styles.disclaimerText}>
+                                            This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.
+                                        </Text>
+                                    </View>
                                 </View>
+                            )}
+                        </>
+                    ) : (
+                        <View style={[styles.card, styles.emptyStateCard]}>
+                            <View style={styles.tag}>
+                                <Text style={styles.tagText}>Assessment Required</Text>
+                            </View>
+                            <Text style={styles.emptyStateTitle}>No report yet</Text>
+                            <Text style={styles.emptyStateText}>
+                                Complete the profile flow and run Generate Analysis first. Until then, we should not show a made-up score here.
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.primaryCta}
+                                onPress={() => navigation.navigate('ProfileSetupStep1')}
+                            >
+                                <LinearGradient
+                                    colors={['#14B8A6', '#0D9488']}
+                                    style={styles.primaryCtaGradient}
+                                >
+                                    <Text style={styles.primaryCtaText}>Continue Assessment</Text>
+                                </LinearGradient>
                             </TouchableOpacity>
                         </View>
-                        
-                        <View style={styles.ctaImageContainer}>
-                            <Image 
-                                source={require('../../assets/ai_doctor.png')} 
-                                style={styles.ctaImage}
-                                resizeMode="contain"
-                            />
-                        </View>
-                    </LinearGradient>
-                </View>
+                    )}
 
-                {/* Doctor Advice Response */}
-                {doctorAdvice && (
-                    <View style={styles.doctorCard}>
-                        <View style={styles.doctorCardHeader}>
-                            <Image 
-                                source={require('../../assets/ai_doctor.png')} 
-                                style={styles.doctorAvatarSmall} 
-                            />
-                            <View>
-                                <Text style={styles.doctorName}>MedLLaMA2 AI Doctor</Text>
-                                <Text style={styles.doctorSubtitleSmall}>Personalized Medical Advice</Text>
-                            </View>
-                        </View>
-                        <View style={styles.doctorDivider} />
-                        <View style={styles.adviceContentContainer}>
-                            {renderAdviceContent(doctorAdvice)}
-                        </View>
-                        <View style={styles.disclaimerBox}>
-                            <Text style={styles.disclaimerText}>⚠️ This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.</Text>
-                        </View>
-                    </View>
-                )}
-
-                <View style={{ height: 60 }} />
-            </ScrollView>
-        </SafeAreaView>
-    </View>
+                    <View style={{ height: 60 }} />
+                </ScrollView>
+            </SafeAreaView>
+        </View>
     );
 }
 
@@ -446,7 +452,7 @@ const styles = StyleSheet.create({
     resultCard: {
         alignItems: 'center',
         padding: 24,
-        marginTop: -10, // Slight overlap for the card specifically
+        marginTop: -10,
     },
     cardHeader: {
         width: '100%',
@@ -662,80 +668,20 @@ const styles = StyleSheet.create({
         color: '#0F172A',
         fontFamily: 'PlusJakartaSans_700Bold',
     },
-    ctaCardWrapper: {
+    doctorButton: {
         marginBottom: 24,
-        borderRadius: 28,
-        overflow: 'hidden',
-        ...theme.shadows.medium,
-    },
-    ctaCard: {
-        flexDirection: 'row',
-        padding: 24,
-        minHeight: 240, // Increased to provide more head room
-        alignItems: 'center',
-    },
-    ctaLeft: {
-        flex: 1.2,
-        zIndex: 2,
-    },
-    ctaTitle: {
-        fontSize: 22,
-        fontFamily: 'PlusJakartaSans_800ExtraBold',
-        color: '#FFFFFF',
-        lineHeight: 28,
-        marginBottom: 8,
-    },
-    ctaSubtitle: {
-        fontSize: 14,
-        fontFamily: 'PlusJakartaSans_500Medium',
-        color: 'rgba(255, 255, 255, 0.8)',
-        marginBottom: 20,
-    },
-    ctaButton: {
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
         borderRadius: 20,
-        alignSelf: 'flex-start',
-        ...theme.shadows.soft,
+        overflow: 'hidden',
     },
-    ctaButtonInner: {
-        flexDirection: 'row',
+    doctorButtonGradient: {
+        paddingVertical: 18,
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    ctaButtonIcon: {
+    doctorButtonText: {
+        color: '#FFFFFF',
         fontSize: 16,
-        marginRight: 8,
-    },
-    ctaButtonText: {
-        color: '#0D9488',
-        fontSize: 15,
         fontFamily: 'PlusJakartaSans_700Bold',
-    },
-    ctaImageContainer: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        right: -20,
-        width: '60%',
-        justifyContent: 'flex-end',
-        alignItems: 'flex-end',
-    },
-    ctaImage: {
-        width: '100%',
-        height: '100%',
-    },
-    doctorAvatarSmall: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        marginRight: 14,
-        backgroundColor: '#F1F5F9',
-    },
-    doctorSubtitleSmall: {
-        fontSize: 12,
-        color: '#0D9488',
-        fontFamily: 'PlusJakartaSans_500Medium',
     },
     doctorCard: {
         backgroundColor: '#FFFFFF',
@@ -752,8 +698,10 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
     doctorAvatar: {
-        fontSize: 32,
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_700Bold',
         marginRight: 14,
+        color: '#5B21B6',
     },
     doctorName: {
         fontSize: 16,
@@ -814,5 +762,39 @@ const styles = StyleSheet.create({
         color: '#92400E',
         lineHeight: 16,
         fontFamily: 'PlusJakartaSans_500Medium',
-    }
+    },
+    emptyStateCard: {
+        alignItems: 'center',
+        paddingVertical: 36,
+    },
+    emptyStateTitle: {
+        fontSize: 24,
+        color: '#0F172A',
+        fontFamily: 'PlusJakartaSans_700Bold',
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    emptyStateText: {
+        fontSize: 15,
+        color: '#475569',
+        fontFamily: 'PlusJakartaSans_500Medium',
+        lineHeight: 24,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    primaryCta: {
+        width: '100%',
+        borderRadius: 18,
+        overflow: 'hidden',
+    },
+    primaryCtaGradient: {
+        paddingVertical: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    primaryCtaText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+    },
 });
