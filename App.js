@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -33,11 +33,17 @@ import {
 
 const Stack = createNativeStackNavigator();
 
+const NAV_STATE_KEY = 'momera_nav_state';
+
 export default function App() {
   const [user, setUser] = React.useState(null);
   const [authLoading, setAuthLoading] = React.useState(true);
   const [authReady, setAuthReady] = React.useState(false);
   const [needsOnboarding, setNeedsOnboarding] = React.useState(false);
+
+  // Navigation state persistence
+  const [isNavReady, setIsNavReady] = React.useState(Platform.OS !== 'web');
+  const [initialNavState, setInitialNavState] = React.useState(undefined);
 
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
@@ -45,55 +51,31 @@ export default function App() {
     PlusJakartaSans_700Bold,
   });
 
+  // Restore saved navigation state on web
   React.useEffect(() => {
-    if (!firebaseReady || !auth) {
-      setUser(null);
-      setAuthLoading(false);
-      setAuthReady(true);
-      return;
-    }
-
-    const fallback = setTimeout(() => {
-      setAuthLoading(false);
-      setAuthReady(true);
-    }, 1500);
-
-    let unsub = () => {};
-
+    if (Platform.OS !== 'web') return;
     try {
-      unsub = onAuthStateChanged(auth, async (nextUser) => {
-        clearTimeout(fallback);
-        setUser(nextUser);
-
-        if (nextUser?.uid) {
-          try {
-            const profile = await fetchUserProfile(nextUser.uid);
-            setNeedsOnboarding(!profile?.onboardingCompleted);
-          } catch (error) {
-            console.log('profile bootstrap error:', error);
-            setNeedsOnboarding(true);
-          }
-        } else {
-          setNeedsOnboarding(false);
-        }
-
-        setAuthLoading(false);
-        setAuthReady(true);
-      });
-    } catch (error) {
-      console.log('auth init error:', error);
-      clearTimeout(fallback);
-      setAuthLoading(false);
-      setAuthReady(true);
-    }
-
-    return () => {
-      clearTimeout(fallback);
-      unsub();
-    };
+      const saved = window.localStorage.getItem(NAV_STATE_KEY);
+      if (saved) {
+        setInitialNavState(JSON.parse(saved));
+      }
+    } catch (e) {}
+    setIsNavReady(true);
   }, []);
 
-  if (!fontsLoaded || (authLoading && !authReady)) {
+  React.useEffect(() => {
+    // MOCK LOGIN BYPASS
+    setTimeout(() => {
+      setUser({ uid: 'mock_user_123', email: 'test@momera.com', displayName: 'Test User' });
+      setNeedsOnboarding(false); // Set to true if you want to test the onboarding flow
+      setAuthLoading(false);
+      setAuthReady(true);
+    }, 500);
+
+    return () => {};
+  }, []);
+
+  if (!fontsLoaded || (authLoading && !authReady) || !isNavReady) {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -109,7 +91,16 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <NavigationContainer>
+        <NavigationContainer
+          initialState={initialNavState}
+          onStateChange={(state) => {
+            if (Platform.OS === 'web') {
+              try {
+                window.localStorage.setItem(NAV_STATE_KEY, JSON.stringify(state));
+              } catch (e) {}
+            }
+          }}
+        >
           <Stack.Navigator
             initialRouteName={isLoggedIn ? initialPrivateRoute : 'Login'}
             screenOptions={{

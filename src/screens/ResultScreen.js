@@ -11,6 +11,7 @@ import {
     Platform,
     ActivityIndicator,
     Alert,
+    Image,
 } from 'react-native';
 import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -246,7 +247,13 @@ const CompositeScoreCard = ({ compositeData, navigation, nutritionActive, wellne
 };
 
 export default function ResultScreen({ navigation, route }) {
-    const params = route.params || {};
+    // Cross-component integration: get data from all 3 modules first
+    const { clinicalScore, nutritionScore, wellnessData, getCompositeScore, setClinicalScore } = useAppContext();
+
+    // Use route.params if available, otherwise fallback to saved params in context (for page refresh)
+    const rawParams = route.params || {};
+    const params = Object.keys(rawParams).length > 0 ? rawParams : (clinicalScore?.params || {});
+    
     const analysisReady = params.predictionSuccess !== undefined && params.predictionSuccess !== null;
 
     const ageFactor = Math.max(10, Math.min(95, ((50 - (parseFloat(params.age) || 34)) / 32) * 100));
@@ -259,11 +266,8 @@ export default function ResultScreen({ navigation, route }) {
 
     const [doctorAdvice, setDoctorAdvice] = useState(null);
     const [loadingAdvice, setLoadingAdvice] = useState(false);
-
-    // Cross-component integration: get data from all 3 modules
-    const { clinicalScore, nutritionScore, wellnessData, getCompositeScore, setClinicalScore } = useAppContext();
     
-    // Fallback: if clinicalScore wasn't set in context (e.g. hot reload), set it from params
+    // Fallback: if clinicalScore wasn't set in context (e.g. initial load), set it from params
     React.useEffect(() => {
         if (!clinicalScore && successRate > 0) {
             setClinicalScore({
@@ -540,33 +544,55 @@ export default function ResultScreen({ navigation, route }) {
                                 </View>
                             </View>
 
-                            <TouchableOpacity
-                                style={styles.doctorButton}
-                                onPress={fetchDoctorRecommendation}
-                                disabled={loadingAdvice}
-                            >
+                            {/* New Premium Doctor Consultation Card */}
+                            <View style={styles.ctaCardWrapper}>
                                 <LinearGradient
-                                    colors={['#7C3AED', '#5B21B6']}
-                                    style={styles.doctorButtonGradient}
+                                    colors={['#0F766E', '#0D9488']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.ctaCard}
                                 >
-                                    {loadingAdvice ? (
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <ActivityIndicator color="#FFFFFF" size="small" />
-                                            <Text style={styles.doctorButtonText}>  MedLLaMA2 is thinking...</Text>
-                                        </View>
-                                    ) : (
-                                        <Text style={styles.doctorButtonText}>Get Doctor Recommendation</Text>
-                                    )}
+                                    <View style={styles.ctaLeft}>
+                                        <Text style={styles.ctaTitle}>Get Clinical{"\n"}Recommendation</Text>
+                                        <Text style={styles.ctaSubtitle}>Personalized AI medical insights</Text>
+                                        
+                                        <TouchableOpacity
+                                            style={styles.ctaButton}
+                                            onPress={fetchDoctorRecommendation}
+                                            disabled={loadingAdvice}
+                                        >
+                                            <View style={styles.ctaButtonInner}>
+                                                {loadingAdvice ? (
+                                                    <ActivityIndicator color="#0D9488" size="small" />
+                                                ) : (
+                                                    <>
+                                                        <Text style={styles.ctaButtonIcon}>🩺</Text>
+                                                        <Text style={styles.ctaButtonText}>Get Now</Text>
+                                                    </>
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
+                                    
+                                    <View style={styles.ctaImageContainer}>
+                                        <Image 
+                                            source={require('../../assets/ai_doctor.png')} 
+                                            style={styles.ctaImage}
+                                        />
+                                    </View>
                                 </LinearGradient>
-                            </TouchableOpacity>
+                            </View>
 
                             {doctorAdvice && (
                                 <View style={styles.doctorCard}>
                                     <View style={styles.doctorCardHeader}>
-                                        <Text style={styles.doctorAvatar}>AI</Text>
+                                        <Image 
+                                            source={require('../../assets/ai_doctor.png')} 
+                                            style={styles.doctorAvatarSmall} 
+                                        />
                                         <View>
                                             <Text style={styles.doctorName}>MedLLaMA2 AI Doctor</Text>
-                                            <Text style={styles.doctorSubtitle}>Personalized Medical Advice</Text>
+                                            <Text style={styles.doctorSubtitleSmall}>Personalized Medical Advice</Text>
                                         </View>
                                     </View>
                                     <View style={styles.doctorDivider} />
@@ -575,7 +601,7 @@ export default function ResultScreen({ navigation, route }) {
                                     </View>
                                     <View style={styles.disclaimerBox}>
                                         <Text style={styles.disclaimerText}>
-                                            This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.
+                                            ⚠️ This is AI-generated advice. Always consult a qualified healthcare professional before making medical decisions.
                                         </Text>
                                     </View>
                                 </View>
@@ -912,20 +938,82 @@ const styles = StyleSheet.create({
         color: '#0F172A',
         fontFamily: 'PlusJakartaSans_700Bold',
     },
-    doctorButton: {
+    ctaCardWrapper: {
         marginBottom: 24,
-        borderRadius: 20,
+        borderRadius: 28,
         overflow: 'hidden',
+        ...theme.shadows.medium,
     },
-    doctorButtonGradient: {
-        paddingVertical: 18,
+    ctaCard: {
+        flexDirection: 'row',
+        padding: 24,
+        minHeight: 240,
         alignItems: 'center',
-        justifyContent: 'center',
     },
-    doctorButtonText: {
+    ctaLeft: {
+        flex: 1.2,
+        zIndex: 2,
+    },
+    ctaTitle: {
+        fontSize: 22,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
         color: '#FFFFFF',
+        lineHeight: 28,
+        marginBottom: 8,
+    },
+    ctaSubtitle: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: 'rgba(255, 255, 255, 0.8)',
+        marginBottom: 20,
+    },
+    ctaButton: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        alignSelf: 'flex-start',
+        ...theme.shadows.soft,
+    },
+    ctaButtonInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    ctaButtonIcon: {
         fontSize: 16,
+        marginRight: 8,
+    },
+    ctaButtonText: {
+        color: '#0D9488',
+        fontSize: 15,
         fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    ctaImageContainer: {
+        flex: 1,
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        right: -10,
+        width: '50%',
+        justifyContent: 'flex-end',
+    },
+    ctaImage: {
+        width: '100%',
+        height: '100%',
+        // @ts-ignore: web alignment properties
+        objectFit: 'cover',
+        objectPosition: 'top center',
+    },
+    doctorAvatarSmall: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        marginRight: 14,
+    },
+    doctorSubtitleSmall: {
+        fontSize: 12,
+        color: '#7C3AED',
+        fontFamily: 'PlusJakartaSans_500Medium',
     },
     doctorCard: {
         backgroundColor: '#FFFFFF',

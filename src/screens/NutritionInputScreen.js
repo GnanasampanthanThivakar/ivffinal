@@ -23,7 +23,7 @@ import { useAppContext } from '../context/AppContext';
 const { width } = Dimensions.get('window');
 
 // InputGroup component moved outside to prevent recreation on every render
-const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 'numeric', icon, value, updateField }) => {
+const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = Platform.OS === 'web' ? 'default' : 'numeric', icon, value, updateField }) => {
     const [isFocused, setIsFocused] = useState(false);
     const [showError, setShowError] = useState(false);
     

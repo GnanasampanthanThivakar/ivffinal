@@ -137,11 +137,11 @@ export default function LoginScreen({ navigation, route }) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.linkBtn}
+              style={styles.secondaryBtn}
               onPress={() => navigation.navigate('Signup')}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <Text style={styles.linkText}>Don't have an account? Sign up</Text>
+              <Text style={styles.secondaryBtnText}>Create new account</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -240,13 +240,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  linkBtn: {
+  secondaryBtn: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#0D9488',
+    borderRadius: 16,
+    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: 12,
   },
-  linkText: {
-    color: '#0F766E',
-    fontSize: 14,
-    fontWeight: '700',
+  secondaryBtnText: {
+    color: '#0D9488',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });

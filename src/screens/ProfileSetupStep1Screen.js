@@ -24,6 +24,28 @@ export default function ProfileSetupScreen({ navigation }) {
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('160');
   const [weight, setWeight] = useState('55');
+  const [errors, setErrors] = useState({});
+  const [prefillReady, setPrefillReady] = useState(true);
+
+  const handleNext = () => {
+    let newErrors = {};
+    if (!name.trim()) newErrors.name = 'Name is required';
+    if (!age.trim() || isNaN(age)) newErrors.age = 'Valid age is required';
+    if (!height.trim() || isNaN(height)) newErrors.height = 'Valid height is required';
+    if (!weight.trim() || isNaN(weight)) newErrors.weight = 'Valid weight is required';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    navigation.navigate('ProfileSetupStep2', { 
+      name, 
+      age, 
+      height, 
+      weight 
+    });
+  };
 
   const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -95,7 +117,7 @@ export default function ProfileSetupScreen({ navigation }) {
               value={age} 
               onChangeText={(t) => { setAge(t); setErrors({...errors, age: ''}); }} 
               placeholder="Ex. 32" 
-              keyboardType="numeric" 
+              keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
               unit="yrs"
               error={errors.age}
             />
@@ -108,7 +130,7 @@ export default function ProfileSetupScreen({ navigation }) {
                   value={height} 
                   onChangeText={(t) => { setHeight(t); setErrors({...errors, height: ''}); }} 
                   placeholder="160" 
-                  keyboardType="numeric" 
+                  keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
                   error={errors.height}
                 />
               </View>
@@ -119,7 +141,7 @@ export default function ProfileSetupScreen({ navigation }) {
                   value={weight} 
                   onChangeText={(t) => { setWeight(t); setErrors({...errors, weight: ''}); }} 
                   placeholder="55" 
-                  keyboardType="numeric" 
+                  keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
                   error={errors.weight}
                 />
               </View>

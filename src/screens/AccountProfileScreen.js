@@ -509,7 +509,7 @@ export default function AccountProfileScreen() {
               onChangeText={(v) => setPhoneOtpValue(v.replace(/\D/g, '').slice(0, 4))}
               placeholder="0000"
               placeholderTextColor="#CBD5E1"
-              keyboardType="number-pad"
+              keyboardType={Platform.OS === 'web' ? 'default' : 'number-pad'}
               maxLength={4}
               autoFocus
             />

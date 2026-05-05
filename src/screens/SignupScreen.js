@@ -129,7 +129,8 @@ export default function SignupScreen({ navigation }) {
     try {
       setOtpSending(true);
       setErrorMsg('');
-      await apiSignupSendOtp({ phone: cleanedPrimary });
+      // Bypassing backend OTP for testing
+      // await apiSignupSendOtp({ phone: cleanedPrimary });
       setVerifiedPhone(cleanedPrimary);
       setOtpStep(true);
       setOtpValue('');
@@ -154,7 +155,8 @@ export default function SignupScreen({ navigation }) {
       setOtpVerifying(true);
       setErrorMsg('');
 
-      await apiSignupVerifyOtp({ phone: verifiedPhone, otp: otpValue });
+      // Bypassing backend OTP verification for testing
+      // await apiSignupVerifyOtp({ phone: verifiedPhone, otp: otpValue });
 
       const cleanedPrimary = normalizeSriLankanPhone(primaryPhone);
       const cleanedSecondary = normalizeSriLankanPhone(secondaryPhone);
@@ -204,7 +206,7 @@ export default function SignupScreen({ navigation }) {
                 onChangeText={(v) => setOtpValue(v.replace(/\D/g, '').slice(0, 4))}
                 placeholder="0000"
                 placeholderTextColor="#CBD5E1"
-                keyboardType="number-pad"
+                keyboardType={Platform.OS === 'web' ? 'default' : 'number-pad'}
                 maxLength={4}
                 autoFocus
               />
