@@ -13,6 +13,7 @@ import httpx
 
 # --- GLOBAL COMPATIBILITY PATCHES FOR SCIKIT-LEARN ---
 try:
+    from sklearn.experimental import enable_iterative_imputer
     from sklearn.impute import SimpleImputer, IterativeImputer
     # Patch for newer sklearn versions expecting these attributes on loaded objects
     for cls in [SimpleImputer, IterativeImputer]:

@@ -1,7 +1,7 @@
 
 export const theme = {
   colors: {
-    primary: '#0D9488', // Deep Teal
+    primary: '#178E88', // Deep Teal
     secondary: '#FDBA74', // Soft Amber
     accent: '#8B5CF6', // Modern Violet
     background: '#F8FAFC', // Slate background

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 class PredictRequest(BaseModel):
@@ -9,6 +9,7 @@ class PredictRequest(BaseModel):
     Heart_Rate_Variability: float
     Sleep_Hours: float
     steps_sensor: float
+    stressPercent: Optional[float] = None
 
 
 class ActivityRecommendRequest(BaseModel):
@@ -27,3 +28,40 @@ class AlertsListRequest(BaseModel):
 
 class AlertsMarkReadRequest(BaseModel):
     userId: str
+
+
+class SmsTestRequest(BaseModel):
+    userId: str
+    message: Optional[str] = None
+    phones: Optional[List[str]] = None
+
+
+class ForgotPinRequest(BaseModel):
+    loginId: str
+    primaryPhone: str
+    newPin: Optional[str] = None
+    newPassword: Optional[str] = None
+
+
+class ResolveLoginIdRequest(BaseModel):
+    loginId: str
+
+
+class SignupSendOtpRequest(BaseModel):
+    phone: str
+
+
+class SignupVerifyOtpRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+class EmailChangeRequestOtp(BaseModel):
+    userId: str
+    newEmail: str
+
+
+class EmailChangeVerifyOtp(BaseModel):
+    userId: str
+    newEmail: str
+    otp: str

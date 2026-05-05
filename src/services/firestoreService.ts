@@ -1,4 +1,3 @@
-// src/services/firestoreService.ts
 import {
   collection,
   addDoc,
@@ -11,8 +10,6 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-/* ---------- TYPES ---------- */
-
 export type StressLevel = "Low" | "Medium" | "High";
 
 export type TodayData = {
@@ -20,27 +17,28 @@ export type TodayData = {
   hrv?: number;
   sleepHours?: number;
   steps?: number;
-
-  stressPercent?: number; // 0..100
+  stressPercent?: number;
   stressLevel?: StressLevel;
-
-  // extra flags if you want
   alertsCount?: number;
   activitiesCount?: number;
-
-  // optional recommendation
   recommendation?: {
     title: string;
     desc: string;
     category: "Mindfulness" | "Movement" | "Sleep" | "Wellness";
     duration: string;
   };
-
-  // when stored
-  timestamp?: string; // ISO date string (for display)
+  timestamp?: string;
 };
 
-/* ---------- HELPERS ---------- */
+export type AlertItem = {
+  id: string;
+  dateISO: string;
+  fromLevel?: StressLevel | null;
+  toLevel?: StressLevel | null;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+};
 
 function toStressLevel(p?: number): StressLevel {
   const x = Number(p ?? 0);
@@ -49,21 +47,12 @@ function toStressLevel(p?: number): StressLevel {
   return "Low";
 }
 
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function safeNum(v: any): number | undefined {
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
 }
 
-/* ---------- WRITE ---------- */
-
 export async function saveVitalSample(userId: string, data: TodayData) {
-  // Store as a time-series in `vitals`
   await addDoc(collection(db, "vitals"), {
     userId,
     createdAt: Timestamp.now(),
@@ -75,8 +64,6 @@ export async function saveVitalSample(userId: string, data: TodayData) {
     stressLevel: (data.stressLevel ?? toStressLevel(data.stressPercent)) as StressLevel,
   });
 }
-
-/* ---------- READ (today/latest) ---------- */
 
 export async function fetchLatestVitalsForUser(userId: string): Promise<TodayData | null> {
   const q = query(
@@ -104,85 +91,31 @@ export async function fetchLatestVitalsForUser(userId: string): Promise<TodayDat
     stressPercent,
     stressLevel,
     timestamp: createdAt ? createdAt.toISOString().slice(0, 10) : undefined,
-    // keep counts optional (you can compute later)
     alertsCount: 0,
     activitiesCount: 0,
-    recommendation: buildReco(stressLevel),
   };
 }
 
-/* ---------- WEEK SERIES (for WeeklyReportScreen) ---------- */
-
-export type WeekSeries = {
-  labels: string[]; // e.g. Mon..Sun
-  hr: number[];
-  hrv: number[];
-  sleep: number[];
-  steps: number[];
-  stress: StressLevel[];
-};
-
-export async function fetchWeekSeriesFromVitals(userId: string): Promise<WeekSeries> {
-  // pull last 7 records (or more) and map
+export async function fetchAlertsForUser(userId: string): Promise<AlertItem[]> {
   const q = query(
-    collection(db, "vitals"),
+    collection(db, "alerts"),
     where("userId", "==", userId),
     orderBy("createdAt", "desc"),
-    limit(7)
+    limit(50)
   );
 
   const snap = await getDocs(q);
 
-  // sort ascending by date for chart consistency
-  const rows = snap.docs
-    .map((d) => d.data() as any)
-    .map((r) => ({
-      createdAt: r?.createdAt?.toDate ? r.createdAt.toDate() : new Date(),
-      hr: safeNum(r.hr) ?? 0,
-      hrv: safeNum(r.hrv) ?? 0,
-      sleepHours: safeNum(r.sleepHours) ?? 0,
-      steps: safeNum(r.steps) ?? 0,
-      stressLevel: (r.stressLevel ?? toStressLevel(r.stressPercent)) as StressLevel,
-    }))
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-  const labels = rows.map((r) =>
-    r.createdAt.toLocaleDateString(undefined, { weekday: "short" })
-  );
-
-  return {
-    labels,
-    hr: rows.map((r) => r.hr),
-    hrv: rows.map((r) => r.hrv),
-    sleep: rows.map((r) => r.sleepHours),
-    steps: rows.map((r) => r.steps),
-    stress: rows.map((r) => r.stressLevel),
-  };
-}
-
-/* ---------- SIMPLE RECO ---------- */
-
-function buildReco(level: StressLevel) {
-  if (level === "High") {
+  return snap.docs.map((d) => {
+    const x = d.data() as any;
     return {
-      title: "Box Breathing",
-      desc: "Inhale 4s, hold 4s, exhale 4s, hold 4s. Repeat for 3–5 minutes.",
-      category: "Mindfulness" as const,
-      duration: "5 min",
+      id: d.id,
+      dateISO: x.dateISO || "",
+      fromLevel: x.fromLevel || null,
+      toLevel: x.toLevel || null,
+      message: x.message || "",
+      isRead: !!x.isRead,
+      createdAt: x?.createdAt?.toDate ? x.createdAt.toDate().toISOString() : "",
     };
-  }
-  if (level === "Medium") {
-    return {
-      title: "Short Walk + Stretch",
-      desc: "Walk slowly for 8 minutes and do light stretching.",
-      category: "Movement" as const,
-      duration: "10 min",
-    };
-  }
-  return {
-    title: "Maintain Routine",
-    desc: "Keep hydration and do one gentle relaxation session.",
-    category: "Wellness" as const,
-    duration: "7 min",
-  };
+  });
 }
