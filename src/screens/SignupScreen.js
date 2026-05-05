@@ -129,8 +129,7 @@ export default function SignupScreen({ navigation }) {
     try {
       setOtpSending(true);
       setErrorMsg('');
-      // Bypassing backend OTP for testing
-      // await apiSignupSendOtp({ phone: cleanedPrimary });
+      await apiSignupSendOtp({ phone: cleanedPrimary });
       setVerifiedPhone(cleanedPrimary);
       setOtpStep(true);
       setOtpValue('');
@@ -154,10 +153,8 @@ export default function SignupScreen({ navigation }) {
     try {
       setOtpVerifying(true);
       setErrorMsg('');
-
-      // Bypassing backend OTP verification for testing
-      // await apiSignupVerifyOtp({ phone: verifiedPhone, otp: otpValue });
-
+      await apiSignupVerifyOtp({ phone: verifiedPhone, otp: otpValue });
+      
       const cleanedPrimary = normalizeSriLankanPhone(primaryPhone);
       const cleanedSecondary = normalizeSriLankanPhone(secondaryPhone);
       const normalizedUsername = normalizeUsername(username) || generateUsername(normalizedEmail, firstName.trim(), lastName.trim());
@@ -326,9 +323,10 @@ export default function SignupScreen({ navigation }) {
                 style={styles.phoneInput}
                 placeholder="77XXXXXXX or 07XXXXXXXX"
                 placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
+                keyboardType={Platform.OS === 'web' ? 'default' : 'phone-pad'}
                 value={primaryPhone}
-                onChangeText={(value) => setPrimaryPhone(normalizeSriLankanPhone(value))}
+                onChangeText={setPrimaryPhone}
+                onBlur={() => setPrimaryPhone(normalizeSriLankanPhone(primaryPhone))}
               />
             </View>
             <Text style={styles.helperText}>OTP will be sent to this number to verify your account.</Text>
@@ -342,9 +340,10 @@ export default function SignupScreen({ navigation }) {
                 style={styles.phoneInput}
                 placeholder="77XXXXXXX or 07XXXXXXXX"
                 placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
+                keyboardType={Platform.OS === 'web' ? 'default' : 'phone-pad'}
                 value={secondaryPhone}
-                onChangeText={(value) => setSecondaryPhone(normalizeSriLankanPhone(value))}
+                onChangeText={setSecondaryPhone}
+                onBlur={() => setSecondaryPhone(normalizeSriLankanPhone(secondaryPhone))}
               />
             </View>
             <Text style={styles.helperText}>We will notify this number when stress is high.</Text>

@@ -1,10 +1,10 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# backend/
+APP_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# backend/app
-APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(APP_DIR, ".env"))
 
 def abs_from_app(rel: str | None) -> str | None:
     if not rel:

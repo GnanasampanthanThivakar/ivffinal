@@ -51,15 +51,15 @@ def send_notify_sms(phone: str, message: str) -> dict:
             "details": "",
         }
 
-    payload = parse.urlencode(
-        {
-            "user_id": NOTIFY_SMS_USER_ID,
-            "api_key": NOTIFY_SMS_API_KEY,
-            "sender_id": NOTIFY_SMS_SENDER_ID,
-            "to": normalized_phone,
-            "message": str(message or "").strip(),
-        }
-    ).encode("utf-8")
+    payload_dict = {
+        "user_id": NOTIFY_SMS_USER_ID,
+        "api_key": NOTIFY_SMS_API_KEY,
+        "sender_id": NOTIFY_SMS_SENDER_ID,
+        "to": normalized_phone,
+        "message": str(message or "").strip(),
+    }
+    print(f"DEBUG: notify.lk payload: {payload_dict}")
+    payload = parse.urlencode(payload_dict).encode("utf-8")
 
     req = request.Request(
         "https://app.notify.lk/api/v1/send",

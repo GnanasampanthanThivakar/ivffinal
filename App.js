@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ActivityIndicator, View, Platform } from 'react-native';
+import { ActivityIndicator, View, Platform, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -64,22 +64,45 @@ export default function App() {
   }, []);
 
   React.useEffect(() => {
-    // MOCK LOGIN BYPASS
-    setTimeout(() => {
-      setUser({ uid: 'mock_user_123', email: 'test@momera.com', displayName: 'Test User' });
-      setNeedsOnboarding(false); // Set to true if you want to test the onboarding flow
+    if (!firebaseReady) {
       setAuthLoading(false);
       setAuthReady(true);
-    }, 500);
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
+      try {
+        if (currUser) {
+          const profile = await fetchUserProfile(currUser.uid);
+          setUser(currUser);
+          setNeedsOnboarding(!profile?.onboardingCompleted);
+        } else {
+          setUser(null);
+          setNeedsOnboarding(false);
+        }
+      } catch (err) {
+        console.error("Auth state change error:", err);
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+        setAuthReady(true);
+      }
+    });
 
-    return () => {};
-  }, []);
+    return () => unsubscribe();
+  }, [firebaseReady]);
+
+  console.log("App State:", { fontsLoaded, authLoading, authReady, isNavReady, firebaseReady, user: !!user });
 
   if (!fontsLoaded || (authLoading && !authReady) || !isNavReady) {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" />
+          <View style={{ marginTop: 20 }}>
+            {!fontsLoaded && <Text>Loading fonts...</Text>}
+            {authLoading && !authReady && <Text>Initializing auth...</Text>}
+            {!isNavReady && <Text>Preparing navigation...</Text>}
+          </View>
         </View>
       </SafeAreaProvider>
     );

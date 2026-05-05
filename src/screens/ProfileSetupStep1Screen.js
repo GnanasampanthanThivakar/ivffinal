@@ -19,6 +19,28 @@ import { fetchUserProfile } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
 
+const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit, error }) => {
+  const [isFocused, setIsFocused] = useState(false);
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+      <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
+        <TextInput 
+          style={styles.input} 
+          placeholder={placeholder}
+          placeholderTextColor="#94A3B8"
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+        />
+      </View>
+      {error && <Text style={{color: '#EF4444', fontSize: 12, marginTop: 4}}>{error}</Text>}
+    </View>
+  );
+};
+
 export default function ProfileSetupScreen({ navigation }) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -45,27 +67,6 @@ export default function ProfileSetupScreen({ navigation }) {
       height, 
       weight 
     });
-  };
-
-  const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'default', unit }) => {
-    const [isFocused, setIsFocused] = useState(false);
-    return (
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
-        <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
-          <TextInput 
-            style={styles.input} 
-            placeholder={placeholder}
-            placeholderTextColor="#94A3B8"
-            value={value}
-            onChangeText={onChangeText}
-            keyboardType={keyboardType}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-          />
-        </View>
-      </View>
-    );
   };
 
   return (

@@ -926,31 +926,58 @@ def email_change_verify(req: EmailChangeVerifyOtp):
 @app.post("/signup/send-otp")
 @app.post("/wellness/signup/send-otp")
 def signup_send_otp(req: SignupSendOtpRequest):
-    phone = normalize_sms_phone(req.phone)
-    if not phone:
-        raise HTTPException(status_code=400, detail="Valid phone number required")
+    try:
+        phone = normalize_sms_phone(req.phone)
+        print(f"DEBUG: signup_send_otp phone: {phone}")
+        if not phone:
+            raise HTTPException(status_code=400, detail="Valid phone number required")
 
-    otp = generate_otp(4)
-    save_signup_otp_fs(phone, otp)
+        otp = generate_otp(4)
+        print(f"DEBUG: signup_send_otp generated otp: {otp}")
+        save_signup_otp_fs(phone, otp)
+        print(f"DEBUG: signup_send_otp saved to firestore")
 
-    result = send_notify_sms(phone, f"Your Momera signup code is: {otp}. Valid for 5 minutes.")
-    if not result.get("sent"):
-        raise HTTPException(status_code=500, detail=f"Failed to send OTP SMS: {result.get('reason', 'unknown')}")
+        from wellness_api.core.config import NOTIFY_SMS_API_KEY
+        print(f"DEBUG: NOTIFY_SMS_API_KEY length: {len(NOTIFY_SMS_API_KEY)}")
+        print(f"DEBUG: NOTIFY_SMS_API_KEY (masked): {NOTIFY_SMS_API_KEY[:4]}...{NOTIFY_SMS_API_KEY[-4:]}")
 
-    return {"status": "ok", "detail": f"OTP sent to {phone}"}
+        result = send_notify_sms(phone, f"Your Momera signup code is: {otp}. Valid for 5 minutes.")
+        print(f"DEBUG: signup_send_otp sms result: {result}")
+        if not result.get("sent"):
+            raise HTTPException(status_code=500, detail=f"Failed to send OTP SMS: {result.get('reason', 'unknown')} - {result.get('details', '')}")
+
+        return {"status": "ok", "detail": f"OTP sent to {phone}"}
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in signup_send_otp:\n{error_trace}")
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"500 Error: {str(e)}\n{error_trace}")
 
 
 @app.post("/signup/verify-otp")
 @app.post("/wellness/signup/verify-otp")
 def signup_verify_otp(req: SignupVerifyOtpRequest):
-    phone = normalize_sms_phone(req.phone)
-    otp = str(req.otp or "").strip()
+    try:
+        phone = normalize_sms_phone(req.phone)
+        otp = str(req.otp or "").strip()
+        print(f"DEBUG: signup_verify_otp phone: {phone}, otp: {otp}")
 
-    if not phone or not otp:
-        raise HTTPException(status_code=400, detail="phone and otp are required")
+        if not phone or not otp:
+            raise HTTPException(status_code=400, detail="phone and otp are required")
 
-    if not verify_signup_otp_fs(phone, otp):
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        if not verify_signup_otp_fs(phone, otp):
+            print(f"DEBUG: signup_verify_otp FAILED for {phone}")
+            raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    return {"status": "ok", "detail": "Phone verified"}
+        print(f"DEBUG: signup_verify_otp SUCCESS for {phone}")
+        return {"status": "ok", "detail": "Phone verified"}
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in signup_verify_otp:\n{error_trace}")
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"500 Error: {str(e)}\n{error_trace}")
 
