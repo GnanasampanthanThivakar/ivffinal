@@ -21,6 +21,7 @@ import {
 } from "../services/watchData";
 
 import type { TodayData } from "../services/firestoreService";
+import { useAppContext } from "../context/AppContext";
 
 type Nav = NativeStackNavigationProp<any, any>;
 
@@ -42,6 +43,7 @@ function isWeb() {
 export default function WellnessHomeScreen() {
   const navigation = useNavigation<Nav>();
   const userId = "user_1";
+  const { setWellnessData } = useAppContext();
 
   const [today, setToday] = useState<TodayData | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -94,6 +96,17 @@ export default function WellnessHomeScreen() {
         alertsCount: data?.alertsCount ?? 0,
         activitiesCount: data?.recommendation ? 1 : 0,
       });
+
+      // Store wellness data in shared context ONLY when real watch data exists
+      if (data?.hr && data.hr > 0) {
+        setWellnessData({
+          stressLevel: data?.stressLevel ?? 'Low',
+          hr: data?.hr ?? 0,
+          hrv: data?.hrv ?? 0,
+          sleep: data?.sleepHours ?? 0,
+          steps: data?.steps ?? 0
+        });
+      }
 
       setOnline(isWatchOnline());
       setLastSeenMs(Date.now());

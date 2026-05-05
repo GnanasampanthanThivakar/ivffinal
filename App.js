@@ -2,6 +2,7 @@ import * as React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppProvider } from './src/context/AppContext';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import ProfileSetupStep1Screen from './src/screens/ProfileSetupStep1Screen';
 import ProfileSetupStep2Screen from './src/screens/ProfileSetupStep2Screen';
@@ -31,37 +32,67 @@ export default function App() {
     PlusJakartaSans_700Bold,
   });
 
-  if (!fontsLoaded) {
-    return null; // or a custom loading screen
+  const NAVIGATION_STATE_KEY = 'NAVIGATION_STATE_KEY';
+  const [isReady, setIsReady] = React.useState(false);
+  const [initialState, setInitialState] = React.useState();
+
+  React.useEffect(() => {
+    const restoreState = async () => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const savedStateString = window.localStorage.getItem(NAVIGATION_STATE_KEY);
+          const state = savedStateString ? JSON.parse(savedStateString) : undefined;
+          if (state !== undefined) {
+            setInitialState(state);
+          }
+        }
+      } finally {
+        setIsReady(true);
+      }
+    };
+    restoreState();
+  }, []);
+
+  if (!fontsLoaded || !isReady) {
+    return null; // Wait until fonts and navigation state are loaded
   }
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName="Welcome"
-          screenOptions={{
-            headerShown: false
+      <AppProvider>
+        <NavigationContainer
+          initialState={initialState}
+          onStateChange={(state) => {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.setItem(NAVIGATION_STATE_KEY, JSON.stringify(state));
+            }
           }}
         >
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
-          <Stack.Screen name="ProfileSetup" component={ProfileSetupStep1Screen} />
-          {/* Kept 'ProfileSetup' as name for Step 1 if WelcomeScreen links there, 
-              but let's update WelcomeScreen to point to 'ProfileSetupStep1' for clarity 
-              OR just alias it here. Let's start clean. */}
-          <Stack.Screen name="ProfileSetupStep1" component={ProfileSetupStep1Screen} />
-          <Stack.Screen name="ProfileSetupStep2" component={ProfileSetupStep2Screen} />
-          <Stack.Screen name="ProfileSetupStep3" component={ProfileSetupStep3Screen} />
-          <Stack.Screen name="Loading" component={LoadingScreen} />
-          <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen} />
-          <Stack.Screen name="Alerts" component={AlertsScreen} />
-          <Stack.Screen name="Activities" component={ActivitiesScreen} />
-          <Stack.Screen name="NutritionInput" component={NutritionInputScreen} />
-          <Stack.Screen name="Nutrition" component={NutritionScreen} />
-          <Stack.Screen name="NutritionResult" component={NutritionResultScreen} />
-          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-        </Stack.Navigator>
-      </NavigationContainer>
+          <Stack.Navigator
+            initialRouteName="Welcome"
+            screenOptions={{
+              headerShown: false
+            }}
+          >
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="ProfileSetup" component={ProfileSetupStep1Screen} />
+            {/* Kept 'ProfileSetup' as name for Step 1 if WelcomeScreen links there, 
+                but let's update WelcomeScreen to point to 'ProfileSetupStep1' for clarity 
+                OR just alias it here. Let's start clean. */}
+            <Stack.Screen name="ProfileSetupStep1" component={ProfileSetupStep1Screen} />
+            <Stack.Screen name="ProfileSetupStep2" component={ProfileSetupStep2Screen} />
+            <Stack.Screen name="ProfileSetupStep3" component={ProfileSetupStep3Screen} />
+            <Stack.Screen name="Loading" component={LoadingScreen} />
+            <Stack.Screen name="WeeklyReport" component={WeeklyReportScreen} />
+            <Stack.Screen name="Alerts" component={AlertsScreen} />
+            <Stack.Screen name="Activities" component={ActivitiesScreen} />
+            <Stack.Screen name="NutritionInput" component={NutritionInputScreen} />
+            <Stack.Screen name="Nutrition" component={NutritionScreen} />
+            <Stack.Screen name="NutritionResult" component={NutritionResultScreen} />
+            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </AppProvider>
     </SafeAreaProvider>
   );
 }

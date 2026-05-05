@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 import { NUTRITION_PREDICT_URL } from '../config/api';
+import { useAppContext } from '../context/AppContext';
 
 const { width } = Dimensions.get('window');
 
@@ -79,6 +80,7 @@ export default function NutritionInputScreen({ navigation }) {
     const [showHelpModal, setShowHelpModal] = useState(false);
     const [showBmiHelp, setShowBmiHelp] = useState(false);
     const scrollRef = useRef(null);
+    const { setNutritionScore } = useAppContext();
 
     // 24 Feature State Management
     const [formData, setFormData] = useState({
@@ -125,6 +127,14 @@ export default function NutritionInputScreen({ navigation }) {
             }
 
             if (result.success) {
+                // Store nutrition score in shared context for cross-component integration
+                setNutritionScore({
+                    baseline: result.baseline_probability,
+                    optimized: result.optimized_probability,
+                    impact: result.impact_score,
+                    recommendations: result.detailed_recommendations || []
+                });
+
                 const parentNav = navigation.getParent();
                 const nav = parentNav || navigation;
                 nav.navigate('NutritionResult', {

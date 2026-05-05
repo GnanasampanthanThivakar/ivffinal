@@ -128,7 +128,7 @@ export async function getTodayFromWatchOrBackend(userId: string): Promise<TodayD
     sleepHours: 0,
     steps: 0,
     stressPercent: 0,
-    stressLevel: "Low",
+    stressLevel: "Low" as StressLevel,
     timestamp: new Date().toISOString().slice(0, 10),
     alertsCount: 0,
   };

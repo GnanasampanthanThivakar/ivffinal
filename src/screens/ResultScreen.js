@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, SafeAreaView, Dimensions, Touchable
 import Svg, { Circle, G, Defs, LinearGradient as SvgGradient, Stop, Shadow } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { useAppContext } from '../context/AppContext';
 
 const { width, height } = Dimensions.get('window');
 const API_URL = 'http://127.0.0.1:8000';
@@ -103,6 +104,132 @@ const JourneyStep = ({ label, isCompleted, isCurrent, isLast }) => (
     </View>
 );
 
+// Composite Score Integration Card — Matches existing teal/white design
+const CompositeScoreCard = ({ compositeData, navigation, nutritionActive, wellnessActive }) => {
+    if (!compositeData) return null;
+
+    const { compositeScore, baselineScore, components, completedCount, totalComponents, integrationLevel } = compositeData;
+    const delta = compositeScore - baselineScore;
+
+    return (
+        <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
+            {/* Teal Header Strip */}
+            <LinearGradient
+                colors={['#0F766E', '#0D9488']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.compositeHeaderStrip}
+            >
+                <View style={styles.compositeHeaderInner}>
+                    <View>
+                        <Text style={styles.compositeTitle}>Composite IVF Score</Text>
+                        <Text style={styles.compositeSubtitle}>Multi-Model Prediction Engine</Text>
+                    </View>
+                    <View style={styles.compositeModuleBadge}>
+                        <Text style={styles.compositeModuleBadgeText}>{completedCount}/{totalComponents}</Text>
+                    </View>
+                </View>
+            </LinearGradient>
+
+            <View style={{ padding: 24 }}>
+                {/* Score Display */}
+                <View style={styles.compositeScoreRow}>
+                    <View style={styles.compositeScoreMain}>
+                        <Text style={styles.compositeScoreValue}>
+                            {compositeScore.toFixed(1)}
+                            <Text style={styles.compositeScorePercent}>%</Text>
+                        </Text>
+                        {delta !== 0 && (
+                            <View style={[styles.compositeDelta, delta > 0 ? styles.compositeDeltaPositive : styles.compositeDeltaNegative]}>
+                                <Text style={[styles.compositeDeltaText, delta > 0 ? { color: '#0D9488' } : { color: '#EF4444' }]}>
+                                    {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}%
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                    <Text style={styles.compositeScoreLabel}>Adjusted Success Probability</Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Component Breakdown */}
+                <Text style={[styles.sectionHeaderSub, { marginBottom: 12 }]}>Module Breakdown</Text>
+                <View style={styles.compositeBreakdown}>
+                    {components.map((comp, idx) => (
+                        <View key={idx} style={[
+                            styles.compositeCompRow,
+                            idx === components.length - 1 && { borderBottomWidth: 0 }
+                        ]}>
+                            <View style={styles.compositeCompLeft}>
+                                <View style={[styles.compositeCompIconBox, {
+                                    backgroundColor: comp.status === 'completed' ? '#F0FDFA' : '#F8FAFC'
+                                }]}>
+                                    <Text style={styles.compositeCompIcon}>{comp.icon}</Text>
+                                </View>
+                                <View>
+                                    <Text style={styles.compositeCompName}>{comp.name}</Text>
+                                    <Text style={styles.compositeCompStatusText}>
+                                        {comp.status === 'completed' ? 'Analysis Complete' : 'Awaiting Input'}
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.compositeCompRight}>
+                                {comp.status === 'completed' ? (
+                                    <View style={styles.compositeCompScoreBox}>
+                                        <Text style={[
+                                            styles.compositeCompScore,
+                                            { color: comp.name === 'Clinical IVF' ? '#0D9488' 
+                                                   : comp.score > 0 ? '#10B981' 
+                                                   : comp.score < 0 ? '#EF4444' 
+                                                   : '#94A3B8' }
+                                        ]}>
+                                            {comp.name === 'Clinical IVF' 
+                                                ? `${comp.score.toFixed(1)}%` 
+                                                : `${comp.score > 0 ? '+' : ''}${comp.score.toFixed(1)}%`}
+                                        </Text>
+                                        <View style={styles.compositeCheckmark}>
+                                            <Text style={styles.compositeCheckmarkText}>✓</Text>
+                                        </View>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity 
+                                        style={styles.compositePendingBtn}
+                                        onPress={() => {
+                                            if (comp.name === 'Nutrition') {
+                                                navigation.navigate('Nutrition');
+                                            } else if (comp.name === 'Wellness') {
+                                                navigation.navigate('Wellness');
+                                            }
+                                        }}
+                                    >
+                                        <Text style={styles.compositePendingText}>Setup →</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+                    ))}
+                </View>
+
+                {/* Data Flow Pipeline */}
+                <View style={styles.dataFlowContainer}>
+                    <View style={styles.dataFlowRow}>
+                        <View style={[styles.dataFlowDot, { backgroundColor: '#0D9488' }]} />
+                        <View style={[styles.dataFlowLine, { backgroundColor: nutritionActive ? '#0D9488' : '#E2E8F0' }]} />
+                        <View style={[styles.dataFlowDot, { backgroundColor: nutritionActive ? '#F59E0B' : '#E2E8F0' }]} />
+                        <View style={[styles.dataFlowLine, { backgroundColor: wellnessActive ? '#0D9488' : '#E2E8F0' }]} />
+                        <View style={[styles.dataFlowDot, { backgroundColor: wellnessActive ? '#8B5CF6' : '#E2E8F0' }]} />
+                    </View>
+                    <View style={styles.dataFlowLabels}>
+                        <Text style={[styles.dataFlowLabel, { color: '#0D9488' }]}>Clinical</Text>
+                        <Text style={[styles.dataFlowLabel, { color: nutritionActive ? '#F59E0B' : '#94A3B8' }]}>Nutrition</Text>
+                        <Text style={[styles.dataFlowLabel, { color: wellnessActive ? '#8B5CF6' : '#94A3B8' }]}>Wellness</Text>
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+};
+
 export default function ResultScreen({ navigation, route }) {
     const params = route.params || {};
     console.log('ResultScreen received params:', params);
@@ -129,6 +256,24 @@ export default function ResultScreen({ navigation, route }) {
 
     const [doctorAdvice, setDoctorAdvice] = useState(null);
     const [loadingAdvice, setLoadingAdvice] = useState(false);
+
+    // Cross-component integration: get data from all 3 modules
+    const { clinicalScore, nutritionScore, wellnessData, getCompositeScore, setClinicalScore } = useAppContext();
+    
+    // Fallback: if clinicalScore wasn't set in context (e.g. hot reload), set it from params
+    React.useEffect(() => {
+        if (!clinicalScore && successRate > 0) {
+            setClinicalScore({
+                score: successRate,
+                status: successRate >= 50 ? 'Success' : 'Failure',
+                params: params
+            });
+        }
+    }, [clinicalScore, successRate]);
+
+    const compositeData = getCompositeScore();
+    const nutritionActive = !!nutritionScore;
+    const wellnessActive = !!wellnessData;
 
     const fetchDoctorRecommendation = async () => {
         setLoadingAdvice(true);
@@ -231,7 +376,7 @@ export default function ResultScreen({ navigation, route }) {
                         <Text style={styles.headerSubtitle}>Based on your unique profile, {params.name || 'User'}</Text>
                     </View>
 
-                    {/* Main Results Interaction */}
+                    {/* Main Results — Unified Card */}
                     <View style={[styles.card, styles.resultCard]}>
                         <View style={styles.cardHeader}>
                              <View style={styles.tag}>
@@ -240,8 +385,22 @@ export default function ResultScreen({ navigation, route }) {
                              <Text style={styles.sectionHeader}>IVF Success Probability</Text>
                         </View>
 
-                        <SuccessRing percentage={successRate} />
+                        <SuccessRing percentage={compositeData ? compositeData.compositeScore : successRate} />
                         
+                        {/* Show delta if composite differs from baseline */}
+                        {compositeData && compositeData.compositeScore !== compositeData.baselineScore && (
+                            <View style={styles.compositeDeltaRow}>
+                                <Text style={styles.baselineLabel}>
+                                    Clinical Baseline: {compositeData.baselineScore.toFixed(1)}%
+                                </Text>
+                                <View style={[styles.compositeDelta, styles.compositeDeltaPositive]}>
+                                    <Text style={[styles.compositeDeltaText, { color: '#0D9488' }]}>
+                                        ▲ {(compositeData.compositeScore - compositeData.baselineScore).toFixed(1)}% adjusted
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+
                         <View style={styles.divider} />
                         
                         <View style={styles.cardHeader}>
@@ -254,7 +413,95 @@ export default function ResultScreen({ navigation, route }) {
                             <FactorBar label="BMI Index" value={`${bmiFactor.toFixed(0)}%`} color="#8B5CF6" />
                             <FactorBar label="Cell Quality" value={`${fragFactor.toFixed(0)}%`} color="#10B981" />
                         </View>
+
+                        {/* Module Integration Section — inside same card */}
+                        {compositeData && (
+                            <>
+                                <View style={styles.divider} />
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.sectionHeaderSub}>Module Integration</Text>
+                                    <View style={styles.compositeModuleBadgeSmall}>
+                                        <Text style={styles.compositeModuleBadgeSmallText}>
+                                            {compositeData.completedCount}/{compositeData.totalComponents}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.compositeBreakdown}>
+                                    {compositeData.components.map((comp, idx) => (
+                                        <View key={idx} style={[
+                                            styles.compositeCompRow,
+                                            idx === compositeData.components.length - 1 && { borderBottomWidth: 0 }
+                                        ]}>
+                                            <View style={styles.compositeCompLeft}>
+                                                <View style={[styles.compositeCompIconBox, {
+                                                    backgroundColor: comp.status === 'completed' ? '#F0FDFA' : '#F8FAFC'
+                                                }]}>
+                                                    <Text style={styles.compositeCompIcon}>{comp.icon}</Text>
+                                                </View>
+                                                <View>
+                                                    <Text style={styles.compositeCompName}>{comp.name}</Text>
+                                                    <Text style={styles.compositeCompStatusText}>
+                                                        {comp.status === 'completed' ? 'Analysis Complete' : 'Awaiting Input'}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.compositeCompRight}>
+                                                {comp.status === 'completed' ? (
+                                                    <View style={styles.compositeCompScoreBox}>
+                                                        <Text style={[
+                                                            styles.compositeCompScore,
+                                                            { color: comp.name === 'Clinical IVF' ? '#0D9488' 
+                                                                   : comp.score > 0 ? '#10B981' 
+                                                                   : comp.score < 0 ? '#EF4444' 
+                                                                   : '#94A3B8' }
+                                                        ]}>
+                                                            {comp.name === 'Clinical IVF' 
+                                                                ? `${comp.score.toFixed(1)}%` 
+                                                                : `${comp.score > 0 ? '+' : ''}${comp.score.toFixed(1)}%`}
+                                                        </Text>
+                                                        <View style={styles.compositeCheckmark}>
+                                                            <Text style={styles.compositeCheckmarkText}>✓</Text>
+                                                        </View>
+                                                    </View>
+                                                ) : (
+                                                    <TouchableOpacity 
+                                                        style={styles.compositePendingBtn}
+                                                        onPress={() => {
+                                                            if (comp.name === 'Nutrition') {
+                                                                navigation.navigate('Nutrition');
+                                                            } else if (comp.name === 'Wellness') {
+                                                                navigation.navigate('Wellness');
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Text style={styles.compositePendingText}>Setup →</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+
+                                {/* Data Flow Pipeline */}
+                                <View style={styles.dataFlowContainer}>
+                                    <View style={styles.dataFlowRow}>
+                                        <View style={[styles.dataFlowDot, { backgroundColor: '#0D9488' }]} />
+                                        <View style={[styles.dataFlowLine, { backgroundColor: nutritionActive ? '#0D9488' : '#E2E8F0' }]} />
+                                        <View style={[styles.dataFlowDot, { backgroundColor: nutritionActive ? '#F59E0B' : '#E2E8F0' }]} />
+                                        <View style={[styles.dataFlowLine, { backgroundColor: wellnessActive ? '#0D9488' : '#E2E8F0' }]} />
+                                        <View style={[styles.dataFlowDot, { backgroundColor: wellnessActive ? '#8B5CF6' : '#E2E8F0' }]} />
+                                    </View>
+                                    <View style={styles.dataFlowLabels}>
+                                        <Text style={[styles.dataFlowLabel, { color: '#0D9488' }]}>Clinical</Text>
+                                        <Text style={[styles.dataFlowLabel, { color: nutritionActive ? '#F59E0B' : '#94A3B8' }]}>Nutrition</Text>
+                                        <Text style={[styles.dataFlowLabel, { color: wellnessActive ? '#8B5CF6' : '#94A3B8' }]}>Wellness</Text>
+                                    </View>
+                                </View>
+                            </>
+                        )}
                     </View>
+
 
 
                 {/* Journey Section */}
@@ -814,5 +1061,248 @@ const styles = StyleSheet.create({
         color: '#92400E',
         lineHeight: 16,
         fontFamily: 'PlusJakartaSans_500Medium',
-    }
+    },
+
+    // === COMPOSITE SCORE CARD STYLES ===
+    compositeDeltaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
+        marginBottom: 4,
+        gap: 10,
+    },
+    baselineLabel: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#94A3B8',
+    },
+    compositeModuleBadgeSmall: {
+        backgroundColor: '#F0FDFA',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderWidth: 1,
+        borderColor: '#99F6E4',
+    },
+    compositeModuleBadgeSmallText: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0D9488',
+    },
+    compositeHeaderStrip: {
+        paddingVertical: 18,
+        paddingHorizontal: 24,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+    },
+    compositeHeaderInner: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    compositeModuleBadge: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    compositeModuleBadgeText: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#FFFFFF',
+    },
+    compositeTitle: {
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#FFFFFF',
+        letterSpacing: -0.3,
+    },
+    compositeSubtitle: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: 'rgba(255,255,255,0.7)',
+        marginTop: 2,
+    },
+    compositeScoreRow: {
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingVertical: 12,
+        borderRadius: 16,
+        backgroundColor: '#F0FDFA',
+        borderWidth: 1,
+        borderColor: '#CCFBF1',
+    },
+    compositeScoreMain: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    compositeScoreValue: {
+        fontSize: 44,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0F766E',
+        letterSpacing: -2,
+    },
+    compositeScorePercent: {
+        fontSize: 24,
+        color: '#94A3B8',
+    },
+    compositeScoreLabel: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#64748B',
+        marginTop: 4,
+    },
+    compositeDelta: {
+        marginLeft: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    compositeDeltaPositive: {
+        backgroundColor: '#F0FDFA',
+        borderWidth: 1,
+        borderColor: '#99F6E4',
+    },
+    compositeDeltaNegative: {
+        backgroundColor: '#FEF2F2',
+        borderWidth: 1,
+        borderColor: '#FECACA',
+    },
+    compositeDeltaText: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#E2E8F0',
+        marginVertical: 16,
+    },
+    sectionHeaderSub: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#475569',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    compositeBreakdown: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    compositeCompRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    compositeCompLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    compositeCompIconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    compositeCompIcon: {
+        fontSize: 18,
+    },
+    compositeCompName: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#1E293B',
+    },
+    compositeCompStatusText: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#94A3B8',
+        marginTop: 1,
+    },
+    compositeCompRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    compositeCompScoreBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    compositeCompScore: {
+        fontSize: 15,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        marginRight: 8,
+    },
+    compositeCheckmark: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: '#F0FDFA',
+        borderWidth: 1,
+        borderColor: '#99F6E4',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    compositeCheckmarkText: {
+        color: '#0D9488',
+        fontSize: 11,
+        fontWeight: '800',
+    },
+    compositePendingBtn: {
+        backgroundColor: '#F0FDFA',
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#99F6E4',
+    },
+    compositePendingText: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0D9488',
+    },
+    dataFlowContainer: {
+        marginTop: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+    },
+    dataFlowRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    dataFlowDot: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+    },
+    dataFlowLine: {
+        width: 50,
+        height: 3,
+        borderRadius: 2,
+        marginHorizontal: 4,
+    },
+    dataFlowLabels: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingHorizontal: 20,
+    },
+    dataFlowLabel: {
+        fontSize: 10,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
 });
