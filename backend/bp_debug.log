@@ -321,6 +321,47 @@ Total recommendations: 9
 
 ============================================================
 FUNCTION START - Recommendation Engine
+Input SBP: 55.0, DBP: 5.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 5
+DEBUG: Checking Blood Pressure - Systolic: 55.0, Diastolic: 5.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 6
+1. Folate - Impact: 1.91%
+2. Blood Pressure - Impact: 1.88%
+3. Zinc - Impact: 1.34%
+4. Folate (Day 2) - Impact: 0.84%
+5. Protein (Day 1) - Impact: 0.18%
+6. Cholesterol - Impact: 0.17%
+
+============================================================
+FUNCTION START - Recommendation Engine
+Input SBP: 5.0, DBP: 5.0
+============================================================
+
+==================== BLOOD PRESSURE CHECK ====================
+Total recommendations before BP check: 7
+DEBUG: Checking Blood Pressure - Systolic: 5.0, Diastolic: 5.0
+DEBUG: Condition check - systolic_bp >= 140: False, diastolic_bp >= 90: False
+
+==================== AFTER SORTING ====================
+Total recommendations: 8
+1. Blood Pressure - Impact: 4.39%
+2. Folate - Impact: 2.71%
+3. Zinc - Impact: 2.03%
+4. Vitamin D (Day 2) - Impact: 0.79%
+5. Vitamin D (Day 1) - Impact: 0.64%
+6. Folate (Day 2) - Impact: 0.46%
+7. Vitamin B12 (Day 1) - Impact: 0.31%
+8. Zinc (Day 2) - Impact: 0.11%
+
+============================================================
+FUNCTION START - Recommendation Engine
+>>>>>>> 4a37e2b03e284be7c16ddb4e7674951c5a915512
 Input SBP: 0.0, DBP: 0.0
 ============================================================
 
@@ -494,3 +535,5 @@ Total recommendations: 6
 4. Folate (Day 2) - Impact: 1.51%
 5. Sleep Duration - Impact: 0.8%
 6. Vitamin D (Day 2) - Impact: 0.37%
+=======
+>>>>>>> 4a37e2b03e284be7c16ddb4e7674951c5a915512

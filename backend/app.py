@@ -13,6 +13,7 @@ import httpx
 
 # --- GLOBAL COMPATIBILITY PATCHES FOR SCIKIT-LEARN ---
 try:
+    from sklearn.experimental import enable_iterative_imputer
     from sklearn.impute import SimpleImputer, IterativeImputer
     # Patch for newer sklearn versions expecting these attributes on loaded objects
     for cls in [SimpleImputer, IterativeImputer]:
@@ -710,11 +711,39 @@ Keep the response concise, warm, and encouraging. Use simple language. Do not us
             "recommendation": f"Error generating clinical recommendation: {str(e)}"
         }
 
+@app.post("/signup/send-otp")
+async def signup_send_otp_top(req: Request):
+    try:
+        from wellness_api.main import signup_send_otp
+        from wellness_api.schemas.request import SignupSendOtpRequest
+        body = await req.json()
+        print(f"DEBUG: signup_send_otp_top body: {body}")
+        return signup_send_otp(SignupSendOtpRequest(**body))
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in signup_send_otp_top:\n{error_trace}")
+        raise HTTPException(status_code=500, detail=f"500 Error: {str(e)}\n{error_trace}")
+
+@app.post("/signup/verify-otp")
+async def signup_verify_otp_top(req: Request):
+    try:
+        from wellness_api.main import signup_verify_otp
+        from wellness_api.schemas.request import SignupVerifyOtpRequest
+        body = await req.json()
+        print(f"DEBUG: signup_verify_otp_top body: {body}")
+        return signup_verify_otp(SignupVerifyOtpRequest(**body))
+    except Exception as e:
+        print(f"ERROR in signup_verify_otp_top: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/")
 def home():
     return {
         "message": "IVF Prediction Backend Active",
-        "endpoints": ["/api/predict/ivf (7-feat)", "/api/predict/nutrition_full (24-feat)"]
+        "endpoints": ["/api/predict/ivf (7-feat)", "/api/predict/nutrition_full (24-feat)", "/signup/send-otp", "/signup/verify-otp"]
     }
 
 if __name__ == "__main__":

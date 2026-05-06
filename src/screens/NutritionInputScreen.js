@@ -20,6 +20,7 @@ import { theme } from '../theme';
 import { NUTRITION_PREDICT_URL } from '../config/api';
 import { getUserProfile } from '../services/profileStorage';
 import { getLiveToday, isWatchOnline, subscribeWatchLive, getTodayFromWatchOrBackend, startWatchLive } from '../services/watchData';
+import { useAppContext } from '../context/AppContext';
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +39,7 @@ const formatNumber = (num) => {
 };
 
 // InputGroup component moved outside to prevent recreation on every render
-const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 'numeric', icon, value, updateField, syncedFromWatch = false }) => {
+const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = Platform.OS === 'web' ? 'default' : 'numeric', icon, value, updateField, syncedFromWatch = false }) => {
     const [isFocused, setIsFocused] = useState(false);
     const [showError, setShowError] = useState(false);
     
@@ -107,6 +108,7 @@ export default function NutritionInputScreen({ navigation, route }) {
     const [showHelpModal, setShowHelpModal] = useState(false);
     const [showBmiHelp, setShowBmiHelp] = useState(false);
     const scrollRef = useRef(null);
+    const { setNutritionScore } = useAppContext();
     
     // Watch data state
     const [watchData, setWatchData] = useState(null);
@@ -282,6 +284,14 @@ export default function NutritionInputScreen({ navigation, route }) {
             }
 
             if (result.success) {
+                // Store nutrition score in shared context for cross-component integration
+                setNutritionScore({
+                    baseline: result.baseline_probability,
+                    optimized: result.optimized_probability,
+                    impact: result.impact_score,
+                    recommendations: result.detailed_recommendations || []
+                });
+
                 const parentNav = navigation.getParent();
                 const nav = parentNav || navigation;
                 nav.navigate('NutritionResult', {

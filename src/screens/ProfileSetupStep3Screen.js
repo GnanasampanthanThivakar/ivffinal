@@ -13,6 +13,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 import { saveUserProfile } from '../services/profileStorage';
+import { auth } from '../services/firebase';
+import { saveOnboardingProfile } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
 
@@ -38,19 +40,41 @@ export default function ProfileSetupStep3Screen({ navigation, route }) {
 
   const handleCalculate = async () => {
       if (!consent) return;
-      setCalculating(true);
-      
-      // Save user profile data
-      await saveUserProfile({
-        name: params.name,
-        age: params.age,
-        height: params.height,
-        weight: params.weight,
-        bmi: bmi
-      });
-      
-      navigation.navigate('Loading', { ...params, bmi });
-      setTimeout(() => setCalculating(false), 500);
+      try {
+        setCalculating(true);
+        
+        // Save user profile data locally
+        await saveUserProfile({
+          name: params.name,
+          age: params.age,
+          height: params.height,
+          weight: params.weight,
+          bmi: bmi
+        });
+        
+        // Save onboarding profile to Firebase
+        await saveOnboardingProfile(auth?.currentUser, {
+          name: params.name || '',
+          age: params.age || '',
+          height: params.height || '',
+          weight: params.weight || '',
+          amhLevel: params.amhLevel || '',
+          previousIVF: !!params.previousIVF,
+          eggsRetrieved: params.eggsRetrieved || '',
+          priorSAB: params.priorSAB || '',
+          freshD3CellCount: params.freshD3CellCount || '',
+          freshD3Fragmentation: params.freshD3Fragmentation || '',
+          calculatedVelocity: params.calculatedVelocity || '',
+          bmi,
+          consentAcceptedAt: new Date().toISOString(),
+        });
+        
+        navigation.navigate('Loading', { ...params, bmi });
+      } catch (error) {
+        console.log('onboarding error:', error);
+      } finally {
+        setCalculating(false);
+      }
   };
 
   const InfoRow = ({ label, value }) => (

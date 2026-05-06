@@ -1,17 +1,14 @@
+from typing import Optional, List, Union
 from pydantic import BaseModel
-from typing import Optional, List, Literal, Dict, Any
 
 
-# -----------------------------------
-# Predict
-# -----------------------------------
 class PredictResponse(BaseModel):
     currentStressLevel: str
-    activitySuggested: str
-    alert: Optional[Dict[str, Any]] = None
+    activitySuggested: Optional[str] = None
+    alert: Optional[dict] = None
 
-    # extra fields for UI
-    unreadCount: int = 0
+    unreadCount: Optional[int] = 0
+
     activityDescription: Optional[str] = None
     activityGoal: Optional[str] = None
     activityDurationMin: Optional[int] = None
@@ -19,12 +16,10 @@ class PredictResponse(BaseModel):
     category: Optional[str] = None
 
 
-# -----------------------------------
-# Activity recommendation
-# -----------------------------------
-class TopKActivity(BaseModel):
+class ActivityTop3Item(BaseModel):
     activitySuggested: str
     prob: float
+    category: Optional[str] = None
 
 
 class ActivityRecommendResponse(BaseModel):
@@ -34,12 +29,10 @@ class ActivityRecommendResponse(BaseModel):
     activityGoal: Optional[str] = None
     activityDurationMin: Optional[int] = None
     supportMessage: Optional[str] = None
-    top3: List[TopKActivity] = []
+    category: Optional[str] = None
+    top3: List[ActivityTop3Item] = []
 
 
-# -----------------------------------
-# Weekly report
-# -----------------------------------
 class DayPoint(BaseModel):
     dateISO: str
     HR: float
@@ -55,11 +48,8 @@ class WeeklyReportResponse(BaseModel):
     points: List[DayPoint]
 
 
-# -----------------------------------
-# Alerts
-# -----------------------------------
 class AlertItem(BaseModel):
-    id: int
+    id: Union[str, int]
     dateISO: str
     fromLevel: Optional[str] = None
     toLevel: Optional[str] = None
@@ -75,19 +65,40 @@ class AlertsListResponse(BaseModel):
 
 
 class AlertsMarkReadResponse(BaseModel):
-    status: Literal["ok"]
+    status: str
 
 
-# -----------------------------------
-# Activities list
-# -----------------------------------
+class SmsTestResponse(BaseModel):
+    status: str
+    phone: Optional[str] = None
+    phones: Optional[List[str]] = None
+    details: Optional[str] = None
+    metaResponse: Optional[dict] = None
+
+
 class ActivityCatalogItem(BaseModel):
     id: str
     title: str
     description: str
-    category: str
     durationMin: int
+    category: str
+    createdAt: Optional[str] = None
 
 
 class ActivitiesListResponse(BaseModel):
     activities: List[ActivityCatalogItem]
+
+
+class ForgotPinResponse(BaseModel):
+    status: str
+    detail: str
+
+
+class ResolveLoginIdResponse(BaseModel):
+    status: str
+    email: str
+
+
+class EmailChangeOtpResponse(BaseModel):
+    status: str
+    detail: str

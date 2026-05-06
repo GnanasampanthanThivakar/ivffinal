@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { auth } from '../services/firebase';
+import { fetchUserProfile } from '../services/userProfileService';
 
 const { width } = Dimensions.get('window');
 
@@ -22,11 +24,7 @@ const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'd
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
-      <View style={[
-        styles.inputWrapper, 
-        isFocused && styles.inputWrapperFocused,
-        error && styles.inputWrapperError
-      ]}>
+      <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
         <TextInput 
           style={styles.input} 
           placeholder={placeholder}
@@ -38,7 +36,7 @@ const InputGroup = ({ label, value, onChangeText, placeholder, keyboardType = 'd
           onBlur={() => setIsFocused(false)}
         />
       </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error && <Text style={{color: '#EF4444', fontSize: 12, marginTop: 4}}>{error}</Text>}
     </View>
   );
 };
@@ -49,33 +47,26 @@ export default function ProfileSetupScreen({ navigation }) {
   const [height, setHeight] = useState('160');
   const [weight, setWeight] = useState('55');
   const [errors, setErrors] = useState({});
-
-  const validate = () => {
-    let newErrors = {};
-    if (!name.trim()) newErrors.name = "Required field";
-    
-    const ageVal = parseFloat(age);
-    if (!age) newErrors.age = "Required field";
-    else if (isNaN(ageVal) || ageVal < 18 || ageVal > 60) newErrors.age = "Must be 18-60";
-
-    const heightVal = parseFloat(height);
-    if (!height) newErrors.height = "Required field";
-    else if (isNaN(heightVal) || heightVal < 120 || heightVal > 250) newErrors.height = "Must be 120-250cm";
-
-    const weightVal = parseFloat(weight);
-    if (!weight) newErrors.weight = "Required field";
-    else if (isNaN(weightVal) || weightVal < 30 || weightVal > 200) newErrors.weight = "Must be 30-200kg";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const [prefillReady, setPrefillReady] = useState(true);
 
   const handleNext = () => {
-    if (validate()) {
-      navigation.navigate('ProfileSetupStep2', {
-        name, age, height, weight
-      });
+    let newErrors = {};
+    if (!name.trim()) newErrors.name = 'Name is required';
+    if (!age.trim() || isNaN(age)) newErrors.age = 'Valid age is required';
+    if (!height.trim() || isNaN(height)) newErrors.height = 'Valid height is required';
+    if (!weight.trim() || isNaN(weight)) newErrors.weight = 'Valid weight is required';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
     }
+
+    navigation.navigate('ProfileSetupStep2', { 
+      name, 
+      age, 
+      height, 
+      weight 
+    });
   };
 
   return (
@@ -127,7 +118,7 @@ export default function ProfileSetupScreen({ navigation }) {
               value={age} 
               onChangeText={(t) => { setAge(t); setErrors({...errors, age: ''}); }} 
               placeholder="Ex. 32" 
-              keyboardType="numeric" 
+              keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
               unit="yrs"
               error={errors.age}
             />
@@ -140,7 +131,7 @@ export default function ProfileSetupScreen({ navigation }) {
                   value={height} 
                   onChangeText={(t) => { setHeight(t); setErrors({...errors, height: ''}); }} 
                   placeholder="160" 
-                  keyboardType="numeric" 
+                  keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
                   error={errors.height}
                 />
               </View>
@@ -151,7 +142,7 @@ export default function ProfileSetupScreen({ navigation }) {
                   value={weight} 
                   onChangeText={(t) => { setWeight(t); setErrors({...errors, weight: ''}); }} 
                   placeholder="55" 
-                  keyboardType="numeric" 
+                  keyboardType={Platform.OS === 'web' ? 'default' : 'numeric'}
                   error={errors.weight}
                 />
               </View>
@@ -163,6 +154,7 @@ export default function ProfileSetupScreen({ navigation }) {
             style={styles.nextButton}
             onPress={handleNext}
             activeOpacity={0.9}
+            disabled={!prefillReady}
           >
             <LinearGradient
               colors={['#0D9488', '#14B8A6']}

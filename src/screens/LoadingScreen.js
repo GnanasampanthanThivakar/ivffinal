@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Animated, Dimensions, Image as RNImage } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { useAppContext } from '../context/AppContext';
 
 const { width } = Dimensions.get('window');
 
@@ -11,6 +12,7 @@ export default function LoadingScreen({ navigation, route }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const { setClinicalScore } = useAppContext();
 
   useEffect(() => {
     Animated.parallel([
@@ -90,6 +92,13 @@ export default function LoadingScreen({ navigation, route }) {
                if (response.ok && data.success) {
                    const score = data.success_probability_percentage || data.prediction || 68;
                    console.log('Setting predictionSuccess to:', score);
+                   
+                   // Store clinical score in shared context for cross-component integration
+                   setClinicalScore({
+                       score: score,
+                       status: data.status || 'Unknown',
+                       params: params
+                   });
                    
                    // Wait until progress reaches 100% just to show the UI
                    const checkProgress = setInterval(() => {

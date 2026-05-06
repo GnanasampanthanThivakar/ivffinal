@@ -1,18 +1,21 @@
 import sqlite3
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 
 DB_PATH = Path(__file__).resolve().parents[1] / "appdata.sqlite3"
 
 
-def init_db() -> None:
+def get_conn():
     con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    return con
+
+
+def init_db() -> None:
+    con = get_conn()
     cur = con.cursor()
 
-    # -------------------------
-    # Table: daily_metrics
-    # -------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS daily_metrics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,9 +33,6 @@ def init_db() -> None:
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_user_date ON daily_metrics(user_id, date_iso)")
 
-    # -------------------------
-    # Table: alerts
-    # -------------------------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS alerts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,11 +52,8 @@ def init_db() -> None:
     con.close()
 
 
-# -------------------------
-# Daily metrics
-# -------------------------
 def upsert_day(payload: Dict[str, Any]) -> None:
-    con = sqlite3.connect(DB_PATH)
+    con = get_conn()
     cur = con.cursor()
 
     cur.execute(
@@ -98,8 +95,7 @@ def _empty_day(date_iso: str) -> Dict[str, Any]:
 
 
 def get_last_n_days(user_id: str, n: int = 7) -> List[Dict[str, Any]]:
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
+    con = get_conn()
     cur = con.cursor()
 
     end_date = datetime.now().date()
@@ -126,15 +122,42 @@ def get_last_n_days(user_id: str, n: int = 7) -> List[Dict[str, Any]]:
     return output
 
 
-# -------------------------
-# Alerts
-# -------------------------
+def get_previous_stress_level(user_id: str, before_date_iso: Optional[str] = None) -> Optional[str]:
+    con = get_conn()
+    cur = con.cursor()
+
+    if before_date_iso:
+        cur.execute("""
+            SELECT stress_level
+            FROM daily_metrics
+            WHERE user_id=? AND date_iso < ?
+            ORDER BY date_iso DESC, id DESC
+            LIMIT 1
+        """, (user_id, before_date_iso))
+    else:
+        cur.execute("""
+            SELECT stress_level
+            FROM daily_metrics
+            WHERE user_id=?
+            ORDER BY date_iso DESC, id DESC
+            LIMIT 1
+        """, (user_id,))
+
+    row = cur.fetchone()
+    con.close()
+
+    if not row:
+        return None
+
+    level = row["stress_level"]
+    if not level:
+        return None
+
+    return str(level).strip()
+
+
 def insert_alert(user_id: str, date_iso: str, from_level: str, to_level: str, message: str) -> bool:
-    """
-    Insert only if same transition for same day doesn't already exist.
-    Returns True if inserted, False if skipped.
-    """
-    con = sqlite3.connect(DB_PATH)
+    con = get_conn()
     cur = con.cursor()
 
     cur.execute("""
@@ -160,8 +183,7 @@ def insert_alert(user_id: str, date_iso: str, from_level: str, to_level: str, me
 
 
 def get_alerts(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
+    con = get_conn()
     cur = con.cursor()
 
     cur.execute("""
@@ -178,16 +200,16 @@ def get_alerts(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
 
 
 def get_unread_count(user_id: str) -> int:
-    con = sqlite3.connect(DB_PATH)
+    con = get_conn()
     cur = con.cursor()
-    cur.execute("SELECT COUNT(*) FROM alerts WHERE user_id=? AND is_read=0", (user_id,))
-    count = int(cur.fetchone()[0])
+    cur.execute("SELECT COUNT(*) AS cnt FROM alerts WHERE user_id=? AND is_read=0", (user_id,))
+    row = cur.fetchone()
     con.close()
-    return count
+    return int(row["cnt"] if row else 0)
 
 
 def mark_alerts_read(user_id: str) -> None:
-    con = sqlite3.connect(DB_PATH)
+    con = get_conn()
     cur = con.cursor()
     cur.execute("UPDATE alerts SET is_read=1 WHERE user_id=? AND is_read=0", (user_id,))
     con.commit()

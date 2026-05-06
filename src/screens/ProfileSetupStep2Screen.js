@@ -49,7 +49,7 @@ const GradeSelector = ({ label, selectedGrade, onSelect, error }) => {
   );
 };
 
-const InputGroup = ({ label, value, onChangeText, placeholder, unit, keyboardType = 'numeric', helperText, error }) => {
+const InputGroup = ({ label, value, onChangeText, placeholder, unit, keyboardType = Platform.OS === 'web' ? 'default' : 'numeric', helperText, error }) => {
   const [isFocused, setIsFocused] = useState(false);
   return (
     <View style={styles.inputGroup}>
