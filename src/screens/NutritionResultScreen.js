@@ -15,6 +15,20 @@ import { theme } from '../theme';
 
 const { width } = Dimensions.get('window');
 
+// Helper function to format HRV exactly as it should appear
+const formatHRV = (hrv) => {
+    if (!hrv) return '0';
+    // If HRV has decimals, show 1 decimal place. Otherwise show as integer.
+    const num = Number(hrv);
+    return num % 1 === 0 ? num.toString() : num.toFixed(1);
+};
+
+// Helper function to format numbers with commas for readability
+const formatNumber = (num) => {
+    if (!num) return '0';
+    return Number(num).toLocaleString();
+};
+
 export default function NutritionResultScreen({ navigation, route }) {
     const params = route.params || {};
     const {
@@ -22,7 +36,9 @@ export default function NutritionResultScreen({ navigation, route }) {
         optimizedProbability = 0,
         impactScore = 0,
         recommendation = '',
-        detailedRecommendations = []
+        detailedRecommendations = [],
+        watchData = null,
+        watchConnected = false
     } = params;
 
     // DEBUG: Log received recommendations
@@ -34,6 +50,30 @@ export default function NutritionResultScreen({ navigation, route }) {
         console.log('✓ BP FOUND:', bpRec.current, '→', bpRec.target, 'Impact:', bpRec.impact + '%');
     } else {
         console.log('✗ NO Blood Pressure recommendation found');
+    }
+
+    // DEBUG: Log watch data and verify insight conditions
+    if (watchData) {
+        console.log('\n=== SMARTWATCH DATA RECEIVED ===');
+        console.log('Watch Connected:', watchConnected);
+        console.log('Heart Rate:', watchData.hr, 'bpm');
+        console.log('HRV (RAW):', watchData.hrv, '| Type:', typeof watchData.hrv, '| Display:', formatHRV(watchData.hrv));
+        console.log('Sleep:', watchData.sleepHours, 'hours');
+        console.log('Steps (RAW):', watchData.steps, '| Type:', typeof watchData.steps, '| Display:', formatNumber(watchData.steps));
+        
+        console.log('\n=== INSIGHT CONDITIONS CHECK ===');
+        console.log('❌ Low Sleep (<7 hrs)?', watchData.sleepHours && watchData.sleepHours < 7 ? 'YES - Will show Vitamin B12 & Magnesium recommendation' : 'NO');
+        console.log('❌ Low HRV (<50 ms)?', watchData.hrv && watchData.hrv < 50 ? 'YES - Will show Omega-3 recommendation' : 'NO');
+        console.log('❌ Low Steps (<5000)?', watchData.steps && watchData.steps < 5000 ? 'YES - Will show energy-boosting foods' : 'NO');
+        console.log('❌ High HR (>100 bpm)?', watchData.hr && watchData.hr > 100 ? 'YES - Will show hydration & calming foods' : 'NO');
+        
+        const allGood = (!watchData.sleepHours || watchData.sleepHours >= 7) && 
+                        (!watchData.hrv || watchData.hrv >= 50) && 
+                        (!watchData.steps || watchData.steps >= 5000) &&
+                        (!watchData.hr || watchData.hr <= 100);
+        console.log('✅ All Metrics Good?', allGood ? 'YES - Will show maintenance foods' : 'NO');
+    } else {
+        console.log('\n⚠️  NO WATCH DATA - Smartwatch card will not appear');
     }
 
     const getStatusColor = (status) => {
@@ -140,6 +180,167 @@ export default function NutritionResultScreen({ navigation, route }) {
                     </View>
                 </View>
 
+                {/* Smartwatch Metrics Card */}
+                {watchData && (
+                    <View style={styles.watchMetricsCard}>
+                        <View style={styles.watchHeader}>
+                            <View style={styles.watchTitleRow}>
+                                <Text style={styles.watchIcon}>⌚</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.watchTitle}>Biometric Data</Text>
+                                    <Text style={styles.watchSubtitle}>Real-time health metrics from your smartwatch</Text>
+                                </View>
+                                {watchConnected && (
+                                    <View style={styles.liveIndicator}>
+                                        <View style={styles.liveDot} />
+                                        <Text style={styles.liveText}>LIVE</Text>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
+
+                        <View style={styles.metricsGrid}>
+                            <View style={styles.metricBox}>
+                                <Text style={styles.metricIcon}>💓</Text>
+                                <Text style={styles.metricValue}>{watchData.hr || 0}</Text>
+                                <Text style={styles.metricUnit}>bpm</Text>
+                                <Text style={styles.metricLabel}>Heart Rate</Text>
+                            </View>
+
+                            <View style={styles.metricBox}>
+                                <Text style={styles.metricIcon}>📊</Text>
+                                <Text style={styles.metricValue}>{formatHRV(watchData.hrv)}</Text>
+                                <Text style={styles.metricUnit}>ms</Text>
+                                <Text style={styles.metricLabel}>HRV</Text>
+                            </View>
+
+                            <View style={styles.metricBox}>
+                                <Text style={styles.metricIcon}>😴</Text>
+                                <Text style={styles.metricValue}>{watchData.sleepHours ? watchData.sleepHours.toFixed(1) : '0.0'}</Text>
+                                <Text style={styles.metricUnit}>hrs</Text>
+                                <Text style={styles.metricLabel}>Sleep</Text>
+                            </View>
+
+                            <View style={styles.metricBox}>
+                                <Text style={styles.metricIcon}>👟</Text>
+                                <Text style={styles.metricValue}>{formatNumber(watchData.steps)}</Text>
+                                <Text style={styles.metricUnit}>steps</Text>
+                                <Text style={styles.metricLabel}>Steps</Text>
+                            </View>
+                        </View>
+
+                        {/* Health Insights based on watch data */}
+                        <View style={styles.healthInsightsBox}>
+                            <Text style={styles.insightsTitle}>💡 Evidence-Based Health Insights</Text>
+                            <View style={styles.insightsList}>
+                                {watchData.sleepHours && watchData.sleepHours < 7 && (
+                                    <View style={styles.insightCard}>
+                                        <View style={styles.insightHeader}>
+                                            <Text style={styles.insightEmoji}>😴</Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.insightTitle}>Insufficient Sleep Detected</Text>
+                                                <Text style={styles.insightMetric}>Current: {watchData.sleepHours.toFixed(1)} hrs/night (Target: 7-9 hrs)</Text>
+                                            </View>
+                                        </View>
+                                        <Text style={styles.insightDescription}>
+                                            Poor sleep affects hormone regulation and fertility. Research shows adequate sleep improves fertility outcomes by 15-20%.
+                                        </Text>
+                                        <View style={styles.foodRecommendations}>
+                                            <Text style={styles.foodRecommendTitle}>🥗 Recommended Foods:</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Salmon, Eggs, Fortified Cereals</Text> - Rich in Vitamin B12 for energy</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Spinach, Almonds, Pumpkin Seeds</Text> - High in Magnesium for sleep quality</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Tart Cherry Juice, Kiwi</Text> - Natural melatonin sources</Text>
+                                        </View>
+                                    </View>
+                                )}
+                                {watchData.hrv && watchData.hrv < 50 && (
+                                    <View style={styles.insightCard}>
+                                        <View style={styles.insightHeader}>
+                                            <Text style={styles.insightEmoji}>❤️</Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.insightTitle}>Low Heart Rate Variability</Text>
+                                                <Text style={styles.insightMetric}>Current: {formatHRV(watchData.hrv)} ms (Optimal: 50-100 ms)</Text>
+                                            </View>
+                                        </View>
+                                        <Text style={styles.insightDescription}>
+                                            Low HRV indicates stress or poor cardiovascular recovery. Studies link Omega-3s to 10-15% HRV improvement.
+                                        </Text>
+                                        <View style={styles.foodRecommendations}>
+                                            <Text style={styles.foodRecommendTitle}>🥗 Recommended Foods:</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Salmon, Mackerel, Sardines</Text> - High in EPA/DHA Omega-3</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Walnuts, Flaxseeds, Chia Seeds</Text> - Plant-based Omega-3 (ALA)</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Dark Chocolate (70%+ cacao)</Text> - Flavonoids for heart health</Text>
+                                        </View>
+                                    </View>
+                                )}
+                                {watchData.steps && watchData.steps < 5000 && (
+                                    <View style={styles.insightCard}>
+                                        <View style={styles.insightHeader}>
+                                            <Text style={styles.insightEmoji}>🚶</Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.insightTitle}>Low Physical Activity</Text>
+                                                <Text style={styles.insightMetric}>Current: {watchData.steps.toLocaleString()} steps/day (Target: 8,000-10,000)</Text>
+                                            </View>
+                                        </View>
+                                        <Text style={styles.insightDescription}>
+                                            Sedentary lifestyle impacts metabolic health. Exercise combined with proper nutrition can improve fertility by 25%.
+                                        </Text>
+                                        <View style={styles.foodRecommendations}>
+                                            <Text style={styles.foodRecommendTitle}>🥗 Energy-Boosting Foods:</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Bananas, Sweet Potatoes</Text> - Complex carbs for sustained energy</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Lean Chicken, Greek Yogurt</Text> - Protein for muscle recovery</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Beets, Watermelon</Text> - Nitrates to improve endurance</Text>
+                                        </View>
+                                    </View>
+                                )}
+                                {watchData.hr && watchData.hr > 100 && (
+                                    <View style={styles.insightCard}>
+                                        <View style={styles.insightHeader}>
+                                            <Text style={styles.insightEmoji}>💓</Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.insightTitle}>Elevated Resting Heart Rate</Text>
+                                                <Text style={styles.insightMetric}>Current: {watchData.hr} bpm (Normal: 60-100 bpm)</Text>
+                                            </View>
+                                        </View>
+                                        <Text style={styles.insightDescription}>
+                                            High resting HR may indicate stress, dehydration, or overtraining. Proper hydration and stress management are crucial.
+                                        </Text>
+                                        <View style={styles.foodRecommendations}>
+                                            <Text style={styles.foodRecommendTitle}>🥗 Calming & Hydrating Foods:</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Chamomile Tea, Ashwagandha</Text> - Natural stress reducers</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Coconut Water, Cucumber</Text> - Electrolyte-rich hydration</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Oats, Whole Grains</Text> - B-vitamins for nervous system support</Text>
+                                        </View>
+                                    </View>
+                                )}
+                                {(!watchData.sleepHours || watchData.sleepHours >= 7) && 
+                                 (!watchData.hrv || watchData.hrv >= 50) && 
+                                 (!watchData.steps || watchData.steps >= 5000) &&
+                                 (!watchData.hr || watchData.hr <= 100) && (
+                                    <View style={styles.insightCard}>
+                                        <View style={styles.insightHeader}>
+                                            <Text style={styles.insightEmoji}>✅</Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.insightTitle}>Excellent Biometric Profile</Text>
+                                                <Text style={styles.insightMetric}>All metrics within optimal range</Text>
+                                            </View>
+                                        </View>
+                                        <Text style={styles.insightDescription}>
+                                            Your biometrics indicate good health! Continue your current lifestyle and nutrition plan for optimal fertility outcomes.
+                                        </Text>
+                                        <View style={styles.foodRecommendations}>
+                                            <Text style={styles.foodRecommendTitle}>🥗 Maintenance Foods:</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Colorful Vegetables & Fruits</Text> - Antioxidants for cellular health</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Lean Proteins, Legumes</Text> - Support hormonal balance</Text>
+                                            <Text style={styles.foodItem}>• <Text style={styles.foodBold}>Whole Grains, Healthy Fats</Text> - Sustained nutritional support</Text>
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
+                    </View>
+                )}
+
                 {/* Summary */}
                 {recommendation ? (
                     <View style={styles.summaryCard}>
@@ -222,7 +423,7 @@ export default function NutritionResultScreen({ navigation, route }) {
                 )}
 
                 {/* Technical Insight */}
-                <View style={styles.insightCard}>
+                <View style={styles.technicalInsightCard}>
                     <Text style={styles.insightIcon}>💡</Text>
                     <Text style={styles.insightText}>
                         Results synthesized from a <Text style={{fontWeight: '700'}}>24-feature Neural Ensemble</Text> trained on clinical cohorts. Each recommendation is individually simulated against your profile.
@@ -543,6 +744,15 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans_500Medium',
     },
     insightCard: {
+        backgroundColor: '#FFFFFF',
+        padding: 16,
+        borderRadius: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        ...theme.shadows.soft,
+    },
+    technicalInsightCard: {
         flexDirection: 'row',
         backgroundColor: 'rgba(15, 23, 42, 0.05)',
         padding: 16,
@@ -561,6 +771,177 @@ const styles = StyleSheet.create({
         color: '#475569',
         lineHeight: 18,
         fontFamily: 'PlusJakartaSans_400Regular',
+    },
+    watchMetricsCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 24,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        ...theme.shadows.premium,
+    },
+    watchHeader: {
+        marginBottom: 20,
+    },
+    watchTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    watchIcon: {
+        fontSize: 28,
+        marginRight: 12,
+    },
+    watchTitle: {
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: theme.colors.text,
+        marginBottom: 2,
+    },
+    watchSubtitle: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: theme.colors.textLight,
+    },
+    liveIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#DCFCE7',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+    },
+    liveDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#16A34A',
+        marginRight: 6,
+    },
+    liveText: {
+        fontSize: 10,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#16A34A',
+        letterSpacing: 0.5,
+    },
+    metricsGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 20,
+    },
+    metricBox: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 8,
+        backgroundColor: '#F9FAFB',
+        borderRadius: 16,
+        marginHorizontal: 4,
+    },
+    metricIcon: {
+        fontSize: 24,
+        marginBottom: 8,
+    },
+    metricValue: {
+        fontSize: 24,
+        fontFamily: 'PlusJakartaSans_800ExtraBold',
+        color: theme.colors.text,
+    },
+    metricUnit: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_600SemiBold',
+        color: theme.colors.textLight,
+        marginBottom: 4,
+    },
+    metricLabel: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: theme.colors.textLight,
+        textAlign: 'center',
+    },
+    healthInsightsBox: {
+        backgroundColor: '#F0F9FF',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#DBEAFE',
+    },
+    insightsTitle: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: theme.colors.text,
+        marginBottom: 12,
+    },
+    insightsList: {
+        gap: 8,
+    },
+    insightRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    insightDot: {
+        fontSize: 14,
+        color: '#3B82F6',
+        marginRight: 8,
+        fontFamily: 'PlusJakartaSans_700Bold',
+    },
+    insightRowText: {
+        flex: 1,
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: theme.colors.textLight,
+        lineHeight: 18,
+    },
+    insightHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    insightEmoji: {
+        fontSize: 32,
+        marginRight: 12,
+    },
+    insightTitle: {
+        fontSize: 15,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: theme.colors.text,
+        marginBottom: 2,
+    },
+    insightMetric: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: theme.colors.textLight,
+    },
+    insightDescription: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: theme.colors.textLight,
+        lineHeight: 19,
+        marginBottom: 12,
+    },
+    foodRecommendations: {
+        backgroundColor: '#FFFBEB',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#FEF3C7',
+    },
+    foodRecommendTitle: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#92400E',
+        marginBottom: 8,
+    },
+    foodItem: {
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#78350F',
+        lineHeight: 18,
+        marginBottom: 4,
+    },
+    foodBold: {
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#78350F',
     },
     primaryButton: {
         backgroundColor: '#0F172A',

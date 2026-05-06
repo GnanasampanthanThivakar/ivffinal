@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -18,11 +18,27 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
 import { NUTRITION_PREDICT_URL } from '../config/api';
+import { getUserProfile } from '../services/profileStorage';
+import { getLiveToday, isWatchOnline, subscribeWatchLive, getTodayFromWatchOrBackend, startWatchLive } from '../services/watchData';
 
 const { width } = Dimensions.get('window');
 
+// Helper function to format HRV exactly as it should appear
+const formatHRV = (hrv) => {
+    if (!hrv) return '0';
+    // If HRV has decimals, show 1 decimal place. Otherwise show as integer.
+    const num = Number(hrv);
+    return num % 1 === 0 ? num.toString() : num.toFixed(1);
+};
+
+// Helper function to format numbers with commas for readability
+const formatNumber = (num) => {
+    if (!num) return '0';
+    return Number(num).toLocaleString();
+};
+
 // InputGroup component moved outside to prevent recreation on every render
-const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 'numeric', icon, value, updateField }) => {
+const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 'numeric', icon, value, updateField, syncedFromWatch = false }) => {
     const [isFocused, setIsFocused] = useState(false);
     const [showError, setShowError] = useState(false);
     
@@ -50,14 +66,23 @@ const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 
     
     return (
         <View style={styles.inputGroup}>
-            <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.label}>{label} {unit && <Text style={styles.unitText}>({unit})</Text>}</Text>
+                {syncedFromWatch && (
+                    <View style={styles.syncBadge}>
+                        <Text style={styles.syncBadgeIcon}>⌚</Text>
+                        <Text style={styles.syncBadgeText}>Auto-synced</Text>
+                    </View>
+                )}
+            </View>
             <View style={[
                 styles.inputWrapper, 
                 isFocused && styles.inputWrapperFocused,
-                showError && styles.inputWrapperError
+                showError && styles.inputWrapperError,
+                syncedFromWatch && styles.inputWrapperSynced
             ]}>
                 <TextInput
-                    style={styles.input}
+                    style={[styles.input, syncedFromWatch && styles.inputSynced]}
                     placeholder={placeholder}
                     placeholderTextColor="#94A3B8"
                     keyboardType={keyboardType}
@@ -66,6 +91,9 @@ const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 
                     onBlur={() => setIsFocused(false)}
                     onChangeText={handleChange}
                 />
+                {syncedFromWatch && (
+                    <Text style={styles.syncIndicator}>✓</Text>
+                )}
             </View>
             {showError && (
                 <Text style={styles.errorText}>Allow numeric values only</Text>
@@ -74,11 +102,19 @@ const InputGroup = React.memo(({ label, name, placeholder, unit, keyboardType = 
     );
 });
 
-export default function NutritionInputScreen({ navigation }) {
+export default function NutritionInputScreen({ navigation, route }) {
     const [loading, setLoading] = useState(false);
     const [showHelpModal, setShowHelpModal] = useState(false);
     const [showBmiHelp, setShowBmiHelp] = useState(false);
     const scrollRef = useRef(null);
+    
+    // Watch data state
+    const [watchData, setWatchData] = useState(null);
+    const [watchConnected, setWatchConnected] = useState(false);
+    const [connectingWatch, setConnectingWatch] = useState(false);
+    
+    // Get userId from route params or use default
+    const userId = route?.params?.userId || 'demo_user';
 
     // 24 Feature State Management
     const [formData, setFormData] = useState({
@@ -95,6 +131,127 @@ export default function NutritionInputScreen({ navigation }) {
     const updateField = useCallback((name, value) => {
         setFormData(prev => ({ ...prev, [name]: value }));
     }, []);
+
+    // Handle watch connection
+    const handleConnectWatch = async () => {
+        if (watchConnected) {
+            Alert.alert("Already Connected", "Your smart watch is already connected.");
+            return;
+        }
+        
+        setConnectingWatch(true);
+        try {
+            await startWatchLive(userId);
+            Alert.alert("Success", "Smart watch connected successfully!");
+        } catch (error) {
+            console.error('Watch connection error:', error);
+            Alert.alert(
+                "Connection Failed", 
+                error.message || "Could not connect to smart watch. Make sure Bluetooth is enabled and your watch is nearby."
+            );
+        } finally {
+            setConnectingWatch(false);
+        }
+    };
+
+    // Load user profile data and auto-fill age and BMI
+    useEffect(() => {
+        const loadProfileData = async () => {
+            const profile = await getUserProfile();
+            if (profile) {
+                // Calculate BMI category from numeric BMI
+                const bmiValue = parseFloat(profile.bmi);
+                let bmiCategory = '';
+                if (!isNaN(bmiValue)) {
+                    if (bmiValue < 18.5) {
+                        bmiCategory = '1'; // Underweight
+                    } else if (bmiValue < 25) {
+                        bmiCategory = '2'; // Normal
+                    } else if (bmiValue < 30) {
+                        bmiCategory = '3'; // Overweight
+                    } else {
+                        bmiCategory = '4'; // Obese
+                    }
+                }
+                
+                // Auto-fill age and BMI category
+                setFormData(prev => ({
+                    ...prev,
+                    age: profile.age || '',
+                    bmi_cat: bmiCategory
+                }));
+                
+                console.log('Auto-filled from profile:', {
+                    age: profile.age,
+                    bmi: profile.bmi,
+                    bmi_cat: bmiCategory
+                });
+            }
+        };
+        
+        loadProfileData();
+    }, []);
+
+    // Load watch data and subscribe to updates
+    useEffect(() => {
+        const loadWatchData = async () => {
+            try {
+                const data = await getTodayFromWatchOrBackend(userId);
+                if (data) {
+                    console.log('📱 Smartwatch data loaded:', data);
+                    console.log('🔍 HRV Raw Value:', data.hrv, '| Type:', typeof data.hrv, '| Formatted:', formatHRV(data.hrv));
+                    console.log('👟 Steps Raw Value:', data.steps, '| Type:', typeof data.steps, '| Formatted:', formatNumber(data.steps));
+                    setWatchData(data);
+                    setWatchConnected(isWatchOnline());
+                    
+                    // Auto-fill sleep field from watch data
+                    if (data.sleepHours) {
+                        const sleepValue = data.sleepHours.toFixed(1);
+                        console.log('🌙 AUTO-FILLING SLEEP from watch:', sleepValue, 'hours');
+                        setFormData(prev => ({
+                            ...prev,
+                            sleep: sleepValue
+                        }));
+                        
+                        // Show a brief toast notification
+                        Alert.alert(
+                            "⌚ Sleep Auto-Synced",
+                            `Sleep duration (${sleepValue} hrs) has been automatically filled from your smartwatch.`,
+                            [{ text: "OK", style: "default" }],
+                            { cancelable: true }
+                        );
+                    }
+                } else {
+                    console.log('⚠️  No watch data available');
+                }
+            } catch (error) {
+                console.log('❌ Error loading watch data:', error);
+            }
+        };
+        
+        loadWatchData();
+        
+        // Subscribe to watch updates
+        const unsubscribe = subscribeWatchLive(() => {
+            const liveData = getLiveToday();
+            if (liveData) {
+                setWatchData(liveData);
+                setWatchConnected(isWatchOnline());
+                
+                // Auto-update sleep field when watch data changes
+                if (liveData.sleepHours) {
+                    const sleepValue = liveData.sleepHours.toFixed(1);
+                    console.log('🌙 AUTO-UPDATING SLEEP from watch (live):', sleepValue, 'hours');
+                    setFormData(prev => ({
+                        ...prev,
+                        sleep: sleepValue
+                    }));
+                }
+            }
+        });
+        
+        return () => unsubscribe();
+    }, [userId]);
 
     const handleCalculate = async () => {
         setLoading(true);
@@ -133,7 +290,9 @@ export default function NutritionInputScreen({ navigation }) {
                     optimizedProbability: result.optimized_probability,
                     impactScore: result.impact_score,
                     recommendation: result.recommendation,
-                    detailedRecommendations: result.detailed_recommendations
+                    detailedRecommendations: result.detailed_recommendations,
+                    watchData: watchData,
+                    watchConnected: watchConnected
                 });
             } else {
                 Alert.alert("Prediction Error", result.detail || "Unknown error occurred");
@@ -194,6 +353,101 @@ export default function NutritionInputScreen({ navigation }) {
                         </View>
                     </View>
 
+                    {/* WATCH CONNECTION BUTTON */}
+                    {!watchData && !watchConnected && (
+                        <TouchableOpacity
+                            style={styles.connectWatchButton}
+                            onPress={handleConnectWatch}
+                            disabled={connectingWatch}
+                        >
+                            <LinearGradient
+                                colors={['#6366F1', '#8B5CF6']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.connectWatchGradient}
+                            >
+                                {connectingWatch ? (
+                                    <ActivityIndicator color="#FFF" size="small" />
+                                ) : (
+                                    <>
+                                        <Text style={styles.watchButtonIcon}>⌚</Text>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.connectWatchText}>Connect Smart Watch</Text>
+                                            <Text style={styles.connectWatchSubtext}>Sync heart rate, sleep & activity data</Text>
+                                        </View>
+                                        <Text style={styles.connectWatchArrow}>→</Text>
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* WATCH DATA CARD */}
+                    {watchData && (
+                        <View style={styles.watchCard}>
+                            <View style={styles.watchHeader}>
+                                <Text style={styles.watchTitle}>⌚ Smart Watch Data</Text>
+                                {watchConnected ? (
+                                    <View style={styles.watchStatusLive}>
+                                        <View style={styles.watchDotLive} />
+                                        <Text style={styles.watchStatusLiveText}>Live</Text>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.reconnectButton}
+                                        onPress={handleConnectWatch}
+                                        disabled={connectingWatch}
+                                    >
+                                        {connectingWatch ? (
+                                            <ActivityIndicator size="small" color="#94A3B8" />
+                                        ) : (
+                                            <Text style={styles.reconnectText}>Reconnect</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            
+                            <View style={styles.watchMetricsGrid}>
+                                <View style={styles.watchMetric}>
+                                    <View style={styles.watchMetricContent}>
+                                        <Text style={styles.watchMetricValue}>{watchData.hr || 0}</Text>
+                                        <Text style={styles.watchMetricUnit}>bpm</Text>
+                                    </View>
+                                    <Text style={styles.watchMetricLabel}>Heart Rate</Text>
+                                </View>
+                                
+                                <View style={styles.watchMetricDivider} />
+                                
+                                <View style={styles.watchMetric}>
+                                    <View style={styles.watchMetricContent}>
+                                        <Text style={styles.watchMetricValue}>{formatHRV(watchData.hrv)}</Text>
+                                        <Text style={styles.watchMetricUnit}>ms</Text>
+                                    </View>
+                                    <Text style={styles.watchMetricLabel}>HRV</Text>
+                                </View>
+                                
+                                <View style={styles.watchMetricDivider} />
+                                
+                                <View style={styles.watchMetric}>
+                                    <View style={styles.watchMetricContent}>
+                                        <Text style={styles.watchMetricValue}>{watchData.sleepHours ? watchData.sleepHours.toFixed(1) : '0.0'}</Text>
+                                        <Text style={styles.watchMetricUnit}>hrs</Text>
+                                    </View>
+                                    <Text style={styles.watchMetricLabel}>Sleep</Text>
+                                </View>
+                                
+                                <View style={styles.watchMetricDivider} />
+                                
+                                <View style={styles.watchMetric}>
+                                    <View style={styles.watchMetricContent}>
+                                        <Text style={styles.watchMetricValue}>{formatNumber(watchData.steps)}</Text>
+                                    </View>
+                                    <Text style={styles.watchMetricLabel}>Steps</Text>
+                                </View>
+                            </View>
+                        </View>
+                    )}
+
                     {/* SECTION 1: CLINICAL */}
                     <View style={styles.sectionHeaderBox}>
                         <Text style={styles.sectionHeader}>Clinical Vitals</Text>
@@ -206,7 +460,15 @@ export default function NutritionInputScreen({ navigation }) {
                                 <InputGroup label="Age" name="age" placeholder="e.g. 34" value={formData.age} updateField={updateField} />
                             </View>
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <InputGroup label="Sleep" name="sleep" unit="hrs" placeholder="e.g. 7.5" value={formData.sleep} updateField={updateField} />
+                                <InputGroup 
+                                    label="Sleep" 
+                                    name="sleep" 
+                                    unit="hrs" 
+                                    placeholder="e.g. 7.5" 
+                                    value={formData.sleep} 
+                                    updateField={updateField}
+                                    syncedFromWatch={watchData && watchData.sleepHours && formData.sleep !== ''}
+                                />
                             </View>
                         </View>
 
@@ -757,6 +1019,36 @@ const styles = StyleSheet.create({
         borderColor: '#EF4444',
         backgroundColor: '#FEF2F2',
     },
+    inputWrapperSynced: {
+        borderColor: '#10B981',
+        backgroundColor: '#F0FDF4',
+    },
+    syncBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#DCFCE7',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+    },
+    syncBadgeIcon: {
+        fontSize: 10,
+        marginRight: 4,
+    },
+    syncBadgeText: {
+        fontSize: 9,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#16A34A',
+        letterSpacing: 0.3,
+    },
+    syncIndicator: {
+        position: 'absolute',
+        right: 12,
+        top: '50%',
+        transform: [{ translateY: -8 }],
+        fontSize: 16,
+        color: '#10B981',
+    },
     errorText: {
         fontSize: 11,
         color: '#EF4444',
@@ -770,6 +1062,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: theme.colors.text,
         fontFamily: 'PlusJakartaSans_500Medium',
+    },
+    inputSynced: {
+        paddingRight: 40,
     },
     toggleRow: {
         flexDirection: 'row',
@@ -1073,5 +1368,136 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 15,
         fontFamily: 'PlusJakartaSans_700Bold',
-    }
+    },
+    // Watch Data Card Styles
+    watchCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 24,
+        marginBottom: 30,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        shadowColor: '#0D9488',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    watchHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    watchTitle: {
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#1E293B',
+        letterSpacing: 0.2,
+    },
+    watchStatusLive: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 20,
+        backgroundColor: '#F0FDFA',
+    },
+    watchDotLive: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#14B8A6',
+        marginRight: 6,
+    },
+    watchStatusLiveText: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_600SemiBold',
+        color: '#0D9488',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
+    watchMetricsGrid: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    watchMetric: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    watchMetricDivider: {
+        width: 1,
+        height: 40,
+        backgroundColor: '#F1F5F9',
+    },
+    watchMetricContent: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginBottom: 6,
+    },
+    watchMetricValue: {
+        fontSize: 28,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        color: '#0D9488',
+        letterSpacing: -0.5,
+    },
+    watchMetricUnit: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#94A3B8',
+        marginLeft: 3,
+    },
+    watchMetricLabel: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        color: '#64748B',
+        textAlign: 'center',
+    },
+    // Connect Watch Button Styles
+    connectWatchButton: {
+        marginBottom: 30,
+        borderRadius: 20,
+        overflow: 'hidden',
+        ...theme.shadows.medium,
+    },
+    connectWatchGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 18,
+        paddingHorizontal: 20,
+        gap: 14,
+    },
+    watchButtonIcon: {
+        fontSize: 28,
+    },
+    connectWatchText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans_700Bold',
+        letterSpacing: 0.3,
+    },
+    connectWatchSubtext: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans_500Medium',
+        marginTop: 2,
+    },
+    connectWatchArrow: {
+        color: '#FFFFFF',
+        fontSize: 22,
+        fontWeight: '300',
+    },
+    reconnectButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 20,
+    },
+    reconnectText: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans_600SemiBold',
+        color: '#94A3B8',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
 });

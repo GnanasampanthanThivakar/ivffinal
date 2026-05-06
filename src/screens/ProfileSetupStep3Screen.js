@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../theme';
+import { saveUserProfile } from '../services/profileStorage';
 
 const { width } = Dimensions.get('window');
 
@@ -35,9 +36,19 @@ export default function ProfileSetupStep3Screen({ navigation, route }) {
   const [consent, setConsent] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
       if (!consent) return;
       setCalculating(true);
+      
+      // Save user profile data
+      await saveUserProfile({
+        name: params.name,
+        age: params.age,
+        height: params.height,
+        weight: params.weight,
+        bmi: bmi
+      });
+      
       navigation.navigate('Loading', { ...params, bmi });
       setTimeout(() => setCalculating(false), 500);
   };

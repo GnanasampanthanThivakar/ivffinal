@@ -40,6 +40,17 @@ function normalizeWatchObj(obj: any): TodayData {
   const sleepHours = Number(obj.sleepHours ?? obj.sleepHrs ?? 0);
   const steps = Number(obj.steps ?? 0);
 
+  // Debug log to verify HRV value is preserved correctly
+  if (obj.hrv !== undefined && obj.hrv !== null) {
+    console.log('🔍 WatchData Service - HRV conversion:', {
+      original: obj.hrv,
+      originalType: typeof obj.hrv,
+      converted: hrv,
+      convertedType: typeof hrv,
+      hasDecimals: hrv % 1 !== 0
+    });
+  }
+
   const stressPercent = Number(obj.stressPercent ?? obj.stress ?? 0);
   const stressLevel = (obj.stressLevel ?? parseStressLevel(stressPercent)) as StressLevel;
 
