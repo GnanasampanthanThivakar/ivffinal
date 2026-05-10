@@ -27,9 +27,8 @@ const { width } = Dimensions.get('window');
 // Helper function to format HRV exactly as it should appear
 const formatHRV = (hrv) => {
     if (!hrv) return '0';
-    // If HRV has decimals, show 1 decimal place. Otherwise show as integer.
-    const num = Number(hrv);
-    return num % 1 === 0 ? num.toString() : num.toFixed(1);
+    // Round to whole number to match smartwatch display
+    return Math.round(Number(hrv)).toString();
 };
 
 // Helper function to format numbers with commas for readability
@@ -203,26 +202,9 @@ export default function NutritionInputScreen({ navigation, route }) {
                     console.log('📱 Smartwatch data loaded:', data);
                     console.log('🔍 HRV Raw Value:', data.hrv, '| Type:', typeof data.hrv, '| Formatted:', formatHRV(data.hrv));
                     console.log('👟 Steps Raw Value:', data.steps, '| Type:', typeof data.steps, '| Formatted:', formatNumber(data.steps));
+                    console.log('🌙 Sleep Hours Available:', data.sleepHours, 'hours (manual entry required)');
                     setWatchData(data);
                     setWatchConnected(isWatchOnline());
-                    
-                    // Auto-fill sleep field from watch data
-                    if (data.sleepHours) {
-                        const sleepValue = data.sleepHours.toFixed(1);
-                        console.log('🌙 AUTO-FILLING SLEEP from watch:', sleepValue, 'hours');
-                        setFormData(prev => ({
-                            ...prev,
-                            sleep: sleepValue
-                        }));
-                        
-                        // Show a brief toast notification
-                        Alert.alert(
-                            "⌚ Sleep Auto-Synced",
-                            `Sleep duration (${sleepValue} hrs) has been automatically filled from your smartwatch.`,
-                            [{ text: "OK", style: "default" }],
-                            { cancelable: true }
-                        );
-                    }
                 } else {
                     console.log('⚠️  No watch data available');
                 }
@@ -239,16 +221,6 @@ export default function NutritionInputScreen({ navigation, route }) {
             if (liveData) {
                 setWatchData(liveData);
                 setWatchConnected(isWatchOnline());
-                
-                // Auto-update sleep field when watch data changes
-                if (liveData.sleepHours) {
-                    const sleepValue = liveData.sleepHours.toFixed(1);
-                    console.log('🌙 AUTO-UPDATING SLEEP from watch (live):', sleepValue, 'hours');
-                    setFormData(prev => ({
-                        ...prev,
-                        sleep: sleepValue
-                    }));
-                }
             }
         });
         
@@ -292,6 +264,12 @@ export default function NutritionInputScreen({ navigation, route }) {
                     recommendations: result.detailed_recommendations || []
                 });
 
+                // Merge sleep value from form into watchData
+                const mergedWatchData = {
+                    ...watchData,
+                    sleepHours: formData.sleep ? parseFloat(formData.sleep) : watchData?.sleepHours
+                };
+
                 const parentNav = navigation.getParent();
                 const nav = parentNav || navigation;
                 nav.navigate('NutritionResult', {
@@ -301,7 +279,7 @@ export default function NutritionInputScreen({ navigation, route }) {
                     impactScore: result.impact_score,
                     recommendation: result.recommendation,
                     detailedRecommendations: result.detailed_recommendations,
-                    watchData: watchData,
+                    watchData: mergedWatchData,
                     watchConnected: watchConnected
                 });
             } else {
@@ -435,25 +413,6 @@ export default function NutritionInputScreen({ navigation, route }) {
                                     </View>
                                     <Text style={styles.watchMetricLabel}>HRV</Text>
                                 </View>
-                                
-                                <View style={styles.watchMetricDivider} />
-                                
-                                <View style={styles.watchMetric}>
-                                    <View style={styles.watchMetricContent}>
-                                        <Text style={styles.watchMetricValue}>{watchData.sleepHours ? watchData.sleepHours.toFixed(1) : '0.0'}</Text>
-                                        <Text style={styles.watchMetricUnit}>hrs</Text>
-                                    </View>
-                                    <Text style={styles.watchMetricLabel}>Sleep</Text>
-                                </View>
-                                
-                                <View style={styles.watchMetricDivider} />
-                                
-                                <View style={styles.watchMetric}>
-                                    <View style={styles.watchMetricContent}>
-                                        <Text style={styles.watchMetricValue}>{formatNumber(watchData.steps)}</Text>
-                                    </View>
-                                    <Text style={styles.watchMetricLabel}>Steps</Text>
-                                </View>
                             </View>
                         </View>
                     )}
@@ -477,40 +436,8 @@ export default function NutritionInputScreen({ navigation, route }) {
                                     placeholder="e.g. 7.5" 
                                     value={formData.sleep} 
                                     updateField={updateField}
-                                    syncedFromWatch={watchData && watchData.sleepHours && formData.sleep !== ''}
                                 />
                             </View>
-                        </View>
-
-                        <View style={styles.row}>
-                            <View style={{ flex: 1, marginRight: 10 }}>
-                                <Text style={styles.label}>Gender</Text>
-                                <View style={styles.toggleRow}>
-                                    <TouchableOpacity
-                                        style={[styles.toggleBtn, formData.gender === '2' && styles.toggleBtnActive]}
-                                        onPress={() => updateField('gender', '2')}
-                                    >
-                                        <Text style={[styles.toggleText, formData.gender === '2' && styles.toggleTextActive]}>F</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.toggleBtn, formData.gender === '1' && styles.toggleBtnActive]}
-                                        onPress={() => updateField('gender', '1')}
-                                    >
-                                        <Text style={[styles.toggleText, formData.gender === '1' && styles.toggleTextActive]}>M</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                            {/* <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={styles.label}>Smoking</Text>
-                                <TouchableOpacity
-                                    style={[styles.miniToggle, formData.smoke === '2' && styles.miniToggleActive]}
-                                    onPress={() => updateField('smoke', formData.smoke === '2' ? '1' : '2')}
-                                >
-                                    <Text style={[styles.miniToggleText, formData.smoke === '2' && styles.miniToggleTextActive]}>
-                                        {formData.smoke === '2' ? 'Non-Smoker' : 'Smoker'}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View> */}
                         </View>
 
                         <View style={styles.row}>
