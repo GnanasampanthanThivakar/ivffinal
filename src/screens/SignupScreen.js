@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -63,6 +63,7 @@ export default function SignupScreen({ navigation }) {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [verifiedPhone, setVerifiedPhone] = useState('');
+  const otpInputRef = useRef(null);
 
   const onDobChange = (value) => {
     setDob(value);
@@ -209,14 +210,14 @@ export default function SignupScreen({ navigation }) {
           <View style={[styles.glassCard, { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24, marginTop: -20, width: '100%', maxWidth: 400 }]}>
             {!!errorMsg && (<View style={[styles.errorBox, { width: '100%', marginBottom: 20 }]}><Ionicons name="alert-circle" size={16} color="#DC2626" /><Text style={styles.errorBoxText}>{errorMsg}</Text></View>)}
             <Text style={{ fontSize: 14, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#475569', marginBottom: 20 }}>Enter verification code</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 28, gap: 12 }}>
+            <Pressable onPress={() => otpInputRef.current?.focus()} style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 28, gap: 12 }}>
               {[0, 1, 2, 3].map((i) => (
                 <View key={i} style={{ width: 56, height: 64, borderRadius: 16, borderWidth: 2, borderColor: otpValue[i] ? '#0D9488' : '#E2E8F0', backgroundColor: otpValue[i] ? '#F0FDFA' : '#F8FAFC', justifyContent: 'center', alignItems: 'center' }}>
                   <Text style={{ fontSize: 28, fontFamily: 'PlusJakartaSans_800ExtraBold', color: otpValue[i] ? '#0D9488' : '#CBD5E1' }}>{otpValue[i] || '·'}</Text>
                 </View>
               ))}
-            </View>
-            <TextInput style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }} value={otpValue} onChangeText={(v) => setOtpValue(v.replace(/\D/g, '').slice(0, 4))} keyboardType={Platform.OS === 'web' ? 'default' : 'number-pad'} maxLength={4} autoFocus />
+            </Pressable>
+            <TextInput ref={otpInputRef} style={{ position: 'absolute', opacity: 0, width: '100%', height: 80 }} value={otpValue} onChangeText={(v) => setOtpValue(v.replace(/\D/g, '').slice(0, 4))} keyboardType={Platform.OS === 'web' ? 'default' : 'number-pad'} maxLength={4} autoFocus />
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
               <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: '#F0FDFA', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}><Text style={{ fontSize: 16 }}>🛡️</Text></View>
               <Text style={{ fontSize: 12, color: '#94A3B8', fontFamily: 'PlusJakartaSans_400Regular', flex: 1 }}>Your data is encrypted and protected</Text>

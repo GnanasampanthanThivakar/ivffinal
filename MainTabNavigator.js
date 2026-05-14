@@ -1,10 +1,12 @@
 import React from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ResultScreen from './src/screens/ResultScreen';
 import NutritionInputScreen from './src/screens/NutritionInputScreen';
+import NutritionResultScreen from './src/screens/NutritionResultScreen';
 import WellnessHomeScreen from './src/screens/WellnessHomeScreen';
 import { theme } from './src/theme';
 
@@ -49,6 +51,17 @@ const TabIcon = ({ focused, name }) => {
     );
 }
 
+const NutritionStack = createNativeStackNavigator();
+
+function NutritionTabStack() {
+    return (
+        <NutritionStack.Navigator screenOptions={{ headerShown: false }}>
+            <NutritionStack.Screen name="NutritionInput" component={NutritionInputScreen} />
+            <NutritionStack.Screen name="NutritionResult" component={NutritionResultScreen} />
+        </NutritionStack.Navigator>
+    );
+}
+
 export default function MainTabNavigator({ route }) {
     const dashboardParams = route.params || {};
 
@@ -66,7 +79,7 @@ export default function MainTabNavigator({ route }) {
                 component={ResultScreen} 
                 initialParams={dashboardParams}
             />
-            <Tab.Screen name="Nutrition" component={NutritionInputScreen} />
+            <Tab.Screen name="Nutrition" component={NutritionTabStack} />
             <Tab.Screen name="Wellness" component={WellnessHomeScreen} />
         </Tab.Navigator>
     );

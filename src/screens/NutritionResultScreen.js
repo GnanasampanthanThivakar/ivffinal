@@ -695,7 +695,7 @@ export default function NutritionResultScreen({ navigation, route }) {
                     <Text style={styles.primaryButtonText}>Modify Input Data</Text>
                 </TouchableOpacity>
 
-                <View style={{ height: 60 }} />
+                <View style={{ height: 120 }} />
             </ScrollView>
         </View>
     );

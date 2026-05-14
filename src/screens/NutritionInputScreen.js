@@ -270,9 +270,7 @@ export default function NutritionInputScreen({ navigation, route }) {
                     sleepHours: formData.sleep ? parseFloat(formData.sleep) : watchData?.sleepHours
                 };
 
-                const parentNav = navigation.getParent();
-                const nav = parentNav || navigation;
-                nav.navigate('NutritionResult', {
+                navigation.navigate('NutritionResult', {
                     name: 'Patient',
                     predictionSuccess: result.baseline_probability,
                     optimizedProbability: result.optimized_probability,

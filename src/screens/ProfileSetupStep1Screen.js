@@ -49,6 +49,28 @@ export default function ProfileSetupScreen({ navigation }) {
   const [errors, setErrors] = useState({});
   const [prefillReady, setPrefillReady] = useState(true);
 
+  useEffect(() => {
+    async function prefillData() {
+      if (!auth?.currentUser?.uid) return;
+      try {
+        const profile = await fetchUserProfile(auth.currentUser.uid);
+        if (profile) {
+          if (profile.firstName || profile.lastName) {
+            setName(`${profile.firstName || ''} ${profile.lastName || ''}`.trim());
+          }
+          if (profile.age) {
+            setAge(String(profile.age));
+          }
+        } else if (auth.currentUser.displayName) {
+          setName(auth.currentUser.displayName);
+        }
+      } catch (error) {
+        console.log("Prefill error:", error);
+      }
+    }
+    prefillData();
+  }, []);
+
   const handleNext = () => {
     let newErrors = {};
     if (!name.trim()) newErrors.name = 'Name is required';
