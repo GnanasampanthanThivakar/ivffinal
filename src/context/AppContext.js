@@ -68,22 +68,29 @@ export function AppProvider({ children }) {
     const getCompositeScore = useCallback(() => {
         if (!clinicalScore) return null;
 
-        let composite = clinicalScore.score;
+        const clinScore = clinicalScore.score;
+        let sumScore = clinScore * 0.7;
+        let sumWeight = 0.7;
+
         let components = [
             { 
                 name: 'Clinical IVF', 
-                score: clinicalScore.score, 
+                score: clinScore, 
                 status: 'completed',
                 icon: '🔬'
             }
         ];
 
-        // Add nutrition impact if available
+        // Add nutrition impact if available (Weight: 0.2)
         if (nutritionScore) {
-            composite = composite + nutritionScore.impact;
+            // Treat Nutrition standalone sub-score as optimized probability or base+impact
+            const nutSubScore = nutritionScore.optimized || (clinScore + nutritionScore.impact);
+            sumScore += nutSubScore * 0.2;
+            sumWeight += 0.2;
+
             components.push({ 
                 name: 'Nutrition', 
-                score: nutritionScore.impact, 
+                score: nutritionScore.impact, // Preserved delta for ResultScreen UI formatting compatibility
                 status: 'completed',
                 icon: '🥗'
             });
@@ -96,15 +103,22 @@ export function AppProvider({ children }) {
             });
         }
 
-        // Add wellness factor if available
+        // Add wellness factor if available (Weight: 0.1)
         if (wellnessData) {
             const stressBonus = wellnessData.stressLevel === 'Low' ? 1.5 
                               : wellnessData.stressLevel === 'Medium' ? 0 
                               : -1.5;
-            composite = composite + stressBonus;
+            
+            // Map stress to a Behavioral Health Quality Score out of 100
+            const wellSubScore = wellnessData.stressLevel === 'Low' ? 95 
+                               : wellnessData.stressLevel === 'Medium' ? 75 
+                               : 50;
+            sumScore += wellSubScore * 0.1;
+            sumWeight += 0.1;
+
             components.push({ 
                 name: 'Wellness', 
-                score: stressBonus, 
+                score: stressBonus, // Preserved bonus delta for ResultScreen UI formatting compatibility
                 status: 'completed',
                 icon: '💓'
             });
@@ -117,11 +131,13 @@ export function AppProvider({ children }) {
             });
         }
 
+        // Dynamically normalized weighted average based on completed components
+        const composite = sumWeight > 0 ? (sumScore / sumWeight) : clinScore;
         const completedCount = components.filter(c => c.status === 'completed').length;
 
         return {
             compositeScore: Math.min(100, Math.max(0, parseFloat(composite.toFixed(2)))),
-            baselineScore: clinicalScore.score,
+            baselineScore: clinScore,
             components,
             completedCount,
             totalComponents: 3,
